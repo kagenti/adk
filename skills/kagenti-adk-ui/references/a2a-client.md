@@ -34,30 +34,53 @@ The flow is:
 3. Inspect `demands` to determine what the agent needs.
 4. `resolveMetadata({ llm: llmResolver, ... })` — resolve demands into message metadata.
 
-For LLM resolution specifically, use `buildLLMExtensionFulfillmentResolver(api, contextToken)` which automatically matches the agent's LLM demands against available platform model providers.
-
-See [`utils.ts`](https://github.com/kagenti/adk/blob/main/apps/adk-ts/examples/chat-ui/src/utils.ts) (`resolveAgentMetadata` function) for the reference implementation.
-
 ### `handleAgentCard` Returns
 
 | Property | Type | Purpose |
 | --- | --- | --- |
 | `resolveMetadata` | `(fulfillments: Fulfillments) => Promise<Record<string, unknown>>` | Resolves all demands into message metadata |
-| `demands` | `{ llm?, embedding?, mcp?, oauth?, secrets?, form?, settings? }` | Extracted demands for inspection |
-
-### Fulfillment Resolvers
-
-| Demand Type | Resolver | When Needed |
-| --- | --- | --- |
-| LLM | `buildLLMExtensionFulfillmentResolver(api, contextToken)` | Agent requires LLM access |
-| Embedding | Custom resolver returning `EmbeddingFulfillments` | Agent requires embedding access |
-| OAuth | Custom resolver returning `OAuthFulfillments` with `redirect_uri` | Agent requires OAuth |
-| Secrets | Custom resolver returning `SecretFulfillments` | Agent requires pre-configured secrets |
-| Form | Custom resolver returning `FormFulfillments` | Agent has initial form demands |
+| `demands` | `{ llmDemands?, embeddingDemands?, mcpDemands?, oauthDemands?, secretDemands?, formDemands?, settingsDemands? }` | Extracted demands for inspection |
 
 ### Inspecting Demands
 
 Use `demands` to determine what the agent requires before deciding which resolvers to provide. If a demand is present and no resolver is given, the agent will fail at runtime.
+
+### LLM Model Selection (Required)
+
+When an agent has LLM demands (`demands.llmDemands`), the UI **must** present a model selector so the user can choose which model to use. This is a core part of the ADK platform — do not silently auto-select or skip model selection.
+
+**Flow:**
+
+1. After fetching the agent card, inspect `demands.llmDemands.llm_demands` — a record of demand keys to demand objects (each with optional `suggested` model names).
+2. For each demand, call `api.matchModelProviders({ suggested_models, capability: ModelCapability.Llm, score_cutoff: 0.4 })` to discover available models on the platform.
+3. Render a model selector UI showing matched models for each demand, with the first match pre-selected as the default.
+4. After the user confirms their selection, build LLM fulfillments using the **LLM proxy pattern**:
+
+```typescript
+llm_fulfillments[demandKey] = {
+  identifier: 'llm_proxy',
+  api_base: '{platform_url}/api/v1/openai/',
+  api_key: contextToken.token,
+  api_model: selectedModel,  // user-selected model ID
+};
+```
+
+5. Pass the LLM fulfillment resolver to `resolveMetadata({ llm: resolver })`.
+
+See [`build-fulfillments.ts`](https://github.com/kagenti/adk/blob/main/apps/adk-ui/src/modules/runs/contexts/agent-demands/build-fulfillments.ts) for the reference implementation. The same pattern applies to embedding demands using `identifier: 'embedding_proxy'`.
+
+> [!WARNING]
+> Do not use `buildLLMExtensionFulfillmentResolver()` — it requires pre-configured model providers and does not allow user model selection. Use the manual LLM proxy pattern described above.
+
+### Other Fulfillment Resolvers
+
+| Demand Type | Resolver Pattern | When Needed |
+| --- | --- | --- |
+| LLM | LLM proxy pattern with `matchModelProviders` + user selection (see above) | Agent requires LLM access |
+| Embedding | Same proxy pattern with `ModelCapability.Embedding` | Agent requires embedding access |
+| OAuth | Custom resolver returning `OAuthFulfillments` with `redirect_uri` | Agent requires OAuth |
+| Secrets | Custom resolver returning `SecretFulfillments` | Agent requires pre-configured secrets |
+| Form | Custom resolver returning `FormFulfillments` | Agent has initial form demands |
 
 ## Session Pattern
 

@@ -79,13 +79,18 @@ if (LOCAL_DEV_AUTO_LOGIN) {
 
 The UI needs these environment variables (names depend on your framework):
 
-| Variable | Example Value | Purpose |
+| Variable | Default (from template.env) | Purpose |
 | --- | --- | --- |
-| OIDC issuer URL | `http://keycloak.localtest.me:8080/realms/adk` | OIDC discovery endpoint base |
-| OIDC client ID | `adk-ui` | Client registered in the OIDC provider for this UI |
-| OIDC client secret | (if confidential client) | Only needed for server-side exchanges |
-| OIDC redirect URI | `http://localhost:5173/auth/callback` | Where the provider redirects after login |
-| LOCAL_DEV_AUTO_LOGIN | `false` | Set to `true` to use credentials form instead of OIDC redirect (local dev only) |
+| OIDC_ENABLED | `true` | Whether OIDC auth is enabled |
+| OIDC_PROVIDER_NAME | `Keycloak` | Display name for the OIDC provider |
+| OIDC_PROVIDER_ID | `keycloak` | Provider identifier |
+| OIDC_PROVIDER_CLIENT_ID | `adk-ui` | Client registered in the OIDC provider |
+| OIDC_PROVIDER_CLIENT_SECRET | `adk-ui-secret` | Client secret (only for server-side exchanges) |
+| OIDC_PROVIDER_ISSUER | `http://keycloak.localtest.me:8080/realms/adk` | OIDC discovery endpoint base (internal) |
+| OIDC_PROVIDER_EXTERNAL_ISSUER | (defaults to ISSUER) | Public issuer URL — only needed when internal and public URLs differ (e.g., dev mode) |
+| LOCAL_DEV_AUTO_LOGIN | `false` | Set to `true` to use credentials form instead of OIDC redirect |
+
+These defaults come from the ADK UI's [`template.env`](https://github.com/kagenti/adk/blob/main/apps/adk-ui/template.env) — read it to get the current default values for your environment. Reuse the same OIDC client registration (`adk-ui`) for your custom UI unless you register a new client in Keycloak.
 
 The OIDC discovery document at `{issuer}/.well-known/openid-configuration` provides the exact authorization, token, and logout endpoint URLs. Always prefer discovery over hardcoded endpoint paths.
 
