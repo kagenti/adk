@@ -29,7 +29,9 @@ In the next steps, you’ll wire up a full A2A message flow: resolve initial age
 
 ### 1. Read the agent card and resolve demands
 
-Fetch the agent card, inspect demands, and build the **initial** fulfillments. To keep the rest of this guide working without extra complexity, focus on the most common requirement: **LLM access** via the platform OpenAI‑compatible proxy. We map each LLM demand key to a model the user picked in your UI, then resolve the metadata that gets attached to your first message.
+Fetch the agent card, inspect demands, and build the **initial** fulfillments. Most agents demand **LLM access** via the platform OpenAI‑compatible proxy. When LLM demands are present, you must resolve them with a valid model before sending the first message — the agent will fail at runtime without it.
+
+Call `matchModelProviders` per demand key to discover available models. You can auto-select the first match as a default, but consider showing the selected model in your UI so users know what's being used. A full model picker is optional but recommended when multiple models are available.
 
 ```typescript
 import { handleAgentCard, type Fulfillments } from "@kagenti/adk";
@@ -64,6 +66,12 @@ const agentMetadata = await resolveMetadata(fulfillments);
 ```
 
 See **[Agent Requirements](./agent-requirements)** for the available service and UI extension helpers.
+
+<Warning>
+  **LLM demands must be fulfilled**
+
+  If the agent declares LLM demands, you must resolve them with a valid model before sending the first message. Auto-selecting the first match from `matchModelProviders` is fine — but skipping model resolution entirely will cause the agent to fail at runtime.
+</Warning>
 
 <Warning>
   **`{platform_url}` is a literal string**
@@ -101,12 +109,22 @@ const stream = client.sendMessageStream({
 
 ### 3. Handle streaming updates and show the form
 
-Use `handleTaskStatusUpdate` to detect form requests and capture the task ID so you can continue the same task. Render streamed output from `status-update` events, and keep `message` as a fallback.
+Use `handleTaskStatusUpdate` to detect form requests and capture the task ID so you can continue the same task. Streamed output arrives primarily via `status-update` events; `message` events are the fallback for non-streaming agents.
+
+<Warning>
+  **Streaming text must live in persistent state, not a temporary variable**
+
+  Many agents send their entire response via `status-update` events and never emit a separate `message` event. If you render streaming text in temporary state and clear it when the stream ends, the response will vanish. Instead, use the **placeholder pattern**: add a placeholder message to your message list before streaming starts, update it in-place as events arrive, and mark it complete when the stream ends.
+</Warning>
 
 ```typescript
 import { handleTaskStatusUpdate, type TaskStatusUpdateType } from "@kagenti/adk";
 
 let taskId: string | undefined;
+
+// 1. Add a placeholder agent message to the message list before streaming
+const placeholderId = crypto.randomUUID();
+addMessage({ id: placeholderId, role: "agent", parts: [], isStreaming: true });
 
 for await (const event of stream) {
   if (event.kind === "task") {
@@ -123,17 +141,26 @@ for await (const event of stream) {
       }
     }
 
-    // Streaming agent output usually arrives here
+    // 2. Update the placeholder in-place as streaming text arrives
     if (event.status.message) {
-      renderMessage(event.status.message.parts, event.status.message.metadata);
+      updateMessage(placeholderId, {
+        parts: event.status.message.parts,
+        metadata: event.status.message.metadata,
+      });
     }
   }
 
-  // Fallback for non-streaming agents or final messages
+  // 3. If a final message arrives, replace placeholder content (non-streaming agents)
   if (event.kind === "message") {
-    renderMessage(event.parts, event.metadata);
+    updateMessage(placeholderId, {
+      parts: event.parts,
+      metadata: event.metadata,
+    });
   }
 }
+
+// 4. Mark streaming complete
+updateMessage(placeholderId, { isStreaming: false });
 ```
 
 <Tip>
@@ -194,18 +221,33 @@ For a focused look at composing messages, see **[User Messages](./user-messages)
 
 ### 5. Render the final output and artifacts
 
-Stream the response and render the final message and any artifacts.
+Stream the response using the same placeholder pattern from step 3. Handle artifacts alongside status updates and messages.
 
 ```typescript
+const placeholderId = crypto.randomUUID();
+addMessage({ id: placeholderId, role: "agent", parts: [], isStreaming: true });
+
 for await (const event of responseStream) {
+  if (event.kind === "status-update" && event.status.message) {
+    updateMessage(placeholderId, {
+      parts: event.status.message.parts,
+      metadata: event.status.message.metadata,
+    });
+  }
+
   if (event.kind === "artifact-update") {
     renderArtifact(event.artifact);
   }
 
   if (event.kind === "message") {
-    renderMessage(event.parts, event.metadata);
+    updateMessage(placeholderId, {
+      parts: event.parts,
+      metadata: event.metadata,
+    });
   }
 }
+
+updateMessage(placeholderId, { isStreaming: false });
 ```
 
 ### 6. Cancel a running task
@@ -275,6 +317,5 @@ For more about error handling, see **[Error Handling](./error-handling)**.
 
 - **Wrong token in A2A requests**: use the *context token* for A2A fetches, not the user access token.
 - **Missing metadata merge**: merge agent card fulfillments with user metadata when you send responses.
-- **Streaming text handling**: status updates can include partial text; append incrementally.
-- **Ignoring status updates**: streamed agent output typically arrives via `status-update` events (in `event.status.message`), not `message`.
+- **Streaming text vanishes**: many agents never emit a `message` event — the entire response arrives via `status-update`. Use the placeholder pattern (see step 3) so accumulated text lives in the message list, not ephemeral state.
 - **Node fetch missing**: Node < 18 requires a `fetch` polyfill or custom `fetch` passed to the API client.

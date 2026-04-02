@@ -14,6 +14,26 @@ Agents emit UI extension metadata on messages and artifacts. The UI extracts thi
 
 Use `extractUiExtensionData` from `@kagenti/adk/core` with specific extension objects from `@kagenti/adk/extensions`. The general pattern: import the extension object, call `extractUiExtensionData(extension)(message.metadata)`, and check the result for presence before rendering.
 
+> [!CAUTION]
+> **`extractUiExtensionData` throws on unexpected shapes.** It runs Zod validation internally. If the agent sends metadata that doesn't exactly match the expected schema (e.g., a raw array instead of a wrapped object), the call will throw a `ZodError` and crash the entire message render — not just the extension.
+>
+> **Defensive pattern:** Wrap calls in try/catch, or read metadata directly by extension URI key:
+>
+> ```typescript
+> const TRAJECTORY_URI = trajectoryExtension.getUri();
+>
+> function extractTrajectory(metadata: Record<string, unknown> | undefined) {
+>   if (!metadata) return undefined;
+>   const raw = metadata[TRAJECTORY_URI];
+>   if (!raw) return undefined;
+>   // Handle both raw array and wrapped object shapes
+>   if (Array.isArray(raw)) return raw;
+>   return (raw as { entries?: unknown[] }).entries;
+> }
+> ```
+>
+> Apply the same defensive pattern for citations and errors.
+
 For exact import paths and type signatures, inspect the installed `@kagenti/adk/extensions` package exports.
 
 ## Extension Selection Matrix
@@ -28,7 +48,7 @@ Trajectory is **always required**. Implement other extensions based on agent nee
 | **Error** | `ui/error/v1` | `ErrorMetadata` | Agent reports structured errors | [Error Handling](https://github.com/kagenti/adk/blob/main/docs/stable/custom-ui/error-handling.mdx) |
 | **Canvas** | `ui/canvas/v1` | `CanvasEditRequest` | Agent provides editable documents | [Agent Requirements](https://github.com/kagenti/adk/blob/main/docs/stable/custom-ui/agent-requirements.mdx) |
 | **Agent Detail** | `agent-detail/v1` | `AgentDetail` | Display agent metadata (tools, author, mode) | [Agent Requirements](https://github.com/kagenti/adk/blob/main/docs/stable/custom-ui/agent-requirements.mdx) |
-| **Settings** | `ui/settings/v1` | `SettingsDemands` / `SettingsValues` | Agent exposes user-configurable settings | [Agent Requirements](https://github.com/kagenti/adk/blob/main/docs/stable/custom-ui/agent-requirements.mdx) |
+| **Form** | `services/form/v1` | `FormDemands` / `FormFulfillments` | Agent requires structured input (including settings) | [Agent Requirements](https://github.com/kagenti/adk/blob/main/docs/stable/custom-ui/agent-requirements.mdx) |
 
 ---
 
@@ -99,11 +119,13 @@ For the exact type shape, inspect the `agentDetailExtension` from `@kagenti/adk/
 
 ---
 
-## Settings
+## Form (including Settings)
 
-User-configurable agent settings. Extract settings demands from the agent card, render settings fields (checkboxes, selects) in a settings panel, and include settings values in message metadata via the fulfillment resolver.
+Agents that require structured input (settings, approvals, custom forms) use the form extension. Settings are a specific form type (`settings_form`) within the broader form demands system.
 
-For the exact type shape, inspect the `settingsExtension` from `@kagenti/adk/extensions`.
+Extract form demands from the agent card, render the appropriate form fields, and submit values via `resolveUserMetadata({ form: ... })`.
+
+For the exact type shape, inspect the `formExtension` from `@kagenti/adk/extensions` and refer to the [Agent Requirements documentation](https://github.com/kagenti/adk/blob/main/docs/stable/custom-ui/agent-requirements.mdx).
 
 ---
 

@@ -58,6 +58,31 @@ See the reference example at [`.env.example`](https://github.com/kagenti/adk/blo
 
 Ensure `tsconfig.json` has strict mode enabled. The SDK relies on proper type narrowing.
 
+### `@kagenti/adk` ships source-only
+
+The `@kagenti/adk` npm package contains TypeScript source files (`src/`) without a compiled `dist/`. Vite and other bundlers handle this transparently at dev time, but `tsc -b` (used in some build scripts) needs type declarations.
+
+**Workarounds:**
+
+1. Add a `paths` mapping in `tsconfig.app.json` to resolve types from source:
+
+   ```json
+   "paths": {
+     "@kagenti/adk": ["./node_modules/@kagenti/adk/src/index.ts"],
+     "@kagenti/adk/core": ["./node_modules/@kagenti/adk/src/core.ts"],
+     "@kagenti/adk/extensions": ["./node_modules/@kagenti/adk/src/extensions.ts"],
+     "@kagenti/adk/api": ["./node_modules/@kagenti/adk/src/api.ts"]
+   }
+   ```
+
+2. The SDK source uses `enum` declarations, so set `"erasableSyntaxOnly": false` in `compilerOptions` (or omit the option, which defaults to false).
+
+3. If `tsc -b` still fails, add a post-install build step:
+
+   ```bash
+   cd node_modules/@kagenti/adk && npx tsup src/index.ts src/api.ts src/core.ts src/extensions.ts --format esm,cjs --outDir dist --no-dts
+   ```
+
 ## Project Structure
 
 Follow the file organization pattern in the [chat-ui reference example](https://github.com/kagenti/adk/tree/main/apps/adk-ts/examples/chat-ui/src). Key files to create:

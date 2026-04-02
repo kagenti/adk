@@ -65,6 +65,20 @@ The `api` object returned by `buildApiClient` provides methods for:
 
 The `createContextToken` response includes a `token` string field. Use `contextToken.token` with `createAuthenticatedFetch()` for all subsequent authenticated requests.
 
+## API Response Shapes
+
+API list methods return wrapper objects, not raw arrays. Always access `.items` on the result:
+
+| Method | Return Shape | Access Pattern |
+| --- | --- | --- |
+| `listProviders({ query: {} })` | `{ items: Provider[] }` | `result.items` |
+| `matchModelProviders(...)` | `{ items: [{ model_id, ... }] }` | `result.items[].model_id` |
+| `listModelProviders(...)` | `{ items: ModelProvider[] }` | `result.items` |
+| `readContextHistory(...)` | `{ items: HistoryItem[] }` | `result.items` |
+
+> [!IMPORTANT]
+> `listProviders` requires `{ query: {} }` as its argument, not `{}` or no argument.
+
 ## Anti-Patterns
 
 - Never call `buildApiClient` multiple times with different base URLs in the same session.
