@@ -66,6 +66,12 @@ const agentMetadata = await resolveMetadata(fulfillments);
 See **[Agent Requirements](./agent-requirements)** for the available service and UI extension helpers.
 
 <Warning>
+  **`{platform_url}` is a literal string**
+
+  Do not replace `{platform_url}` with your actual base URL. The Kagenti ADK platform resolves this placeholder at runtime. Pass it exactly as shown.
+</Warning>
+
+<Warning>
   **State value compatibility**
 
   The Kagenti ADK SDK uses uppercase state constants (e.g., `TASK_STATE_AUTH_REQUIRED`, `TASK_STATE_INPUT_REQUIRED`) internally, while `@a2a-js/sdk` emits lowercase states (e.g., `auth-required`, `input-required`). The `handleTaskStatusUpdate` helper handles this mapping for you, but if you write custom state checks, use the lowercase values from `@a2a-js/sdk` events directly.

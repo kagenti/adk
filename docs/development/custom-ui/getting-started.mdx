@@ -36,6 +36,12 @@ const api = buildApiClient({
 `buildApiClient` exposes the platform API with typed responses and runtime validation.
 Use the user access token from your identity provider (OIDC/OAuth) for UI side API calls.
 
+<Tip>
+  **Obtaining the access token**
+
+  For React SPAs, [`react-oidc-context`](https://github.com/authts/react-oidc-context) handles the full OIDC flow including token refresh (`automaticSilentRenew`) and discovery. Wrap your app in `AuthProvider` and use `useAuth()` to get the access token. For non-React apps, implement the Authorization Code + PKCE flow against your identity provider's discovery endpoint.
+</Tip>
+
 <Note>
   **Browser clients require CORS**
 
