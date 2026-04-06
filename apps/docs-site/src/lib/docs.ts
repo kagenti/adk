@@ -89,3 +89,78 @@ export function getNavGroups(version: string): NavGroup[] {
   const ver = nav.find((v) => v.version === version);
   return ver?.groups || [];
 }
+
+export function getPageTitle(pagePath: string): string {
+  const filePath = path.join(DOCS_ROOT, pagePath) + ".mdx";
+  if (!fs.existsSync(filePath)) {
+    const parts = pagePath.split("/");
+    return parts[parts.length - 1]
+      .replace(/-/g, " ")
+      .replace(/\b\w/g, (c) => c.toUpperCase());
+  }
+  const raw = fs.readFileSync(filePath, "utf-8");
+  const { data } = matter(raw);
+  if (data.title) return data.title as string;
+  const parts = pagePath.split("/");
+  return parts[parts.length - 1]
+    .replace(/-/g, " ")
+    .replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
+export interface Heading {
+  level: 2 | 3;
+  text: string;
+  id: string;
+}
+
+export function extractHeadings(content: string): Heading[] {
+  const headings: Heading[] = [];
+  const regex = /^(#{2,3})\s+(.+)$/gm;
+  let match;
+  while ((match = regex.exec(content)) !== null) {
+    const text = match[2].replace(/`/g, "").trim();
+    const id = text
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/(^-|-$)/g, "");
+    headings.push({
+      level: match[1].length as 2 | 3,
+      text,
+      id,
+    });
+  }
+  return headings;
+}
+
+export interface AdjacentPage {
+  title: string;
+  href: string;
+}
+
+export function getAdjacentPages(
+  version: string,
+  slug: string[],
+): { prev: AdjacentPage | null; next: AdjacentPage | null } {
+  const groups = getNavGroups(version);
+  const allPages: string[] = [];
+
+  for (const group of groups) {
+    for (const page of group.pages) {
+      if (typeof page === "string") {
+        allPages.push(page);
+      }
+    }
+  }
+
+  const currentPath = `${version}/${slug.join("/")}`;
+  const idx = allPages.indexOf(currentPath);
+
+  const toAdjacentPage = (pagePath: string): AdjacentPage => {
+    return { title: getPageTitle(pagePath), href: `/${pagePath}` };
+  };
+
+  return {
+    prev: idx > 0 ? toAdjacentPage(allPages[idx - 1]) : null,
+    next: idx < allPages.length - 1 ? toAdjacentPage(allPages[idx + 1]) : null,
+  };
+}

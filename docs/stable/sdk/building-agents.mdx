@@ -1,5 +1,5 @@
 ---
-title: 'Build New Agents'
+title: 'Build a New Agent'
 description: 'Start building your own agent with a simple Hello World example'
 ---
 
@@ -40,7 +40,7 @@ uv run server
 
 <Tip>
   **Enable auto-reload during development:** Add `watchfiles` to automatically restart your server when code changes:
-  ```bash uv run watchfiles kagenti_adk_agents.agent.run ```
+  ```bash uv run watchfiles adk_agents.agent.run ```
 </Tip>
 
 </Step>
@@ -105,12 +105,12 @@ if __name__ == "__main__":
 <Step title="Start and Configure the Server">
 An agent is essentially an HTTP server. Use `server.run()` to define how your agent listens for requests:
 - Host: Defaults to `127.0.0.1` (localhost).
-- Port: Defaults to `10000`. The starter template overrides this to `8000` via the `PORT` environment variable. If you run multiple agents on the same machine, ensure each has a unique port.
+- Port: Defaults to `8000`. If you run multiple agents on the same machine, ensure each has a unique port.
 
 </Step>
 
 <Step title="Mark Your Agent Function">
-  Add the `@server.agent()` decorator to your function so the platform recognizes it as an agent.
+  Add the `@server.agent` decorator to your function so the platform recognizes it as an agent.
 </Step>
 
 <Step title="Name and Describe Your Agent">
@@ -150,6 +150,8 @@ correctly with the Kagenti ADK platform.
   - If you plan to deploy your agent to the platform (rather than just running it locally), your repository must contain
     a `Dockerfile`
 - Git and Platform Metadata
+  - The repository must be accessible to the Kagenti ADK orchestrator if you are using the `kagenti-adk add` command via
+    URL.
   - Use Git tags (e.g., v1.0.0) if you want to manage stable releases of your agent.
 
 </Accordion>
@@ -159,19 +161,19 @@ correctly with the Kagenti ADK platform.
 After building your agent, you can enhance it and learn more:
 
 <CardGroup cols={2}>
-<Card title="Agent Details" icon="id-card" href="/stable/agent-integration/agent-details">
+<Card title="Agent Details" icon="id-card" href="/stable/sdk/agent-details">
 Customize your agent's name, description, and how it appears in the UI
 </Card>
 
-<Card title="Working with Messages" icon="comment" href="/stable/agent-integration/messages">
+<Card title="Working with Messages" icon="comment" href="/stable/sdk/messages">
   Learn how agents and clients communicate through structured messaging
 </Card>
 
-<Card title="Multi-Turn Conversations" icon="comments" href="/stable/agent-integration/multi-turn">
+<Card title="Multi-Turn Conversations" icon="comments" href="/stable/sdk/multi-turn">
   Understand how to handle multi-turn conversations and maintain context
 </Card>
 
-<Card title="Working with Files" icon="file" href="/stable/agent-integration/files">
+<Card title="Working with Files" icon="file" href="/stable/sdk/files">
 Work with files to provide inputs or store outputs for your agent
 </Card>
 </CardGroup>

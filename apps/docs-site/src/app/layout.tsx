@@ -17,6 +17,14 @@
 import type { Metadata } from "next";
 import "./globals.css";
 
+const themeScript = `
+(function() {
+  var t = localStorage.getItem('theme');
+  if (!t) t = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+  document.documentElement.setAttribute('data-theme', t);
+})();
+`;
+
 export const metadata: Metadata = {
   title: "Kagenti ADK Documentation",
   description:
@@ -29,8 +37,9 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
       <head>
+        <script dangerouslySetInnerHTML={{ __html: themeScript }} />
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link
           rel="preconnect"
