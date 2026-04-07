@@ -12,6 +12,7 @@ import sys
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 
+import httpx
 import pydantic
 import pydantic_settings
 from kagenti_adk.platform import PlatformClient, use_platform_client
@@ -19,6 +20,15 @@ from pydantic import SecretStr
 
 from kagenti_cli.auth_manager import AuthManager
 from kagenti_cli.console import console
+
+
+def _is_connect_error(exc: BaseException) -> bool:
+    """Check if an exception (or its chain) indicates a connection failure."""
+    while exc is not None:
+        if isinstance(exc, (httpx.ConnectError, httpx.ConnectTimeout, ConnectionError, OSError)):
+            return True
+        exc = exc.__cause__  # type: ignore[assignment]
+    return False
 
 
 @functools.cache
@@ -72,6 +82,14 @@ class Configuration(pydantic_settings.BaseSettings):
         try:
             auth_token = await self.auth_manager.load_auth_token()
         except Exception as e:
+            if _is_connect_error(e):
+                console.error(f"Cannot connect to server: {self.auth_manager.active_server}")
+                console.hint(
+                    "Start the Kagenti ADK platform using: [green]kagenti-adk platform start[/green]. "
+                    "If that does not help, run [green]kagenti-adk platform delete[/green] to clean up, "
+                    "then [green]kagenti-adk platform start[/green] again."
+                )
+                sys.exit(1)
             # Auto-recover for local dev by re-authenticating with admin:admin
             if self.auth_manager.active_server and "adk-api.localtest.me" in self.auth_manager.active_server:
                 with contextlib.suppress(Exception):
