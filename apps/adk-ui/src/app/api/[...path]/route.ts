@@ -33,12 +33,8 @@ async function handler(request: NextRequest, context: RouteContext) {
     targetUrl += '/';
   }
   targetUrl += search;
-  if (isAuthEnabled && !isA2AEndpoint(path)) {
-    if (isA2AEndpoint(path)) {
-      // Skip JWT auth for A2A endpoints - they use context tokens passed via A2A client
-      return;
-    }
 
+  if (isAuthEnabled && !isA2AEndpoint(path)) {
     const token = await ensureToken();
 
     if (!token?.accessToken) {
