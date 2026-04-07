@@ -9,24 +9,26 @@ updates:
         patterns:
           - "*"
 
-# Disabled for now due to increased security risk of new package versions being compromised.
-#   - package-ecosystem: npm
-#     directory: /
-#     schedule:
-#       interval: weekly
-#     groups:
-#       npm-dependencies:
-#         patterns:
-#           - "*"
-#
-#   - package-ecosystem: uv
-#     directories:
-#       - /apps/adk-server
-#       - /apps/adk-cli
-#       - /apps/adk-py
-#     schedule:
-#       interval: weekly
-#     groups:
-#       uv-dependencies:
-#         patterns:
-#           - "*"
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 7
+    groups:
+      npm-dependencies:
+        patterns:
+          - "*"
+
+  - package-ecosystem: uv
+    directories:
+      - /apps/*
+      - /agents/*
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 7
+    groups:
+      uv-dependencies:
+        patterns:
+          - "*"
