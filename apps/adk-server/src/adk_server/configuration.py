@@ -480,6 +480,7 @@ class Configuration(BaseSettings):
     uvicorn_timeout_keep_alive: int = 5
 
     provider: ManagedProviderConfiguration = Field(default_factory=ManagedProviderConfiguration)
+    seed_provider_urls: list[str] = Field(default_factory=list)
 
     platform_service_url: str = "adk-server-svc:8333"
     port: int = 8333
