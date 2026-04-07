@@ -23,7 +23,6 @@ updates:
   - package-ecosystem: uv
     directories:
       - /apps/*
-      - /agents/*
     schedule:
       interval: daily
     open-pull-requests-limit: 0  # disables non-security updates
