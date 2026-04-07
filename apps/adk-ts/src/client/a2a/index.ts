@@ -5,3 +5,4 @@
 
 export * from './extensions';
 export * from './protocol';
+export * from './transport';
