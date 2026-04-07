@@ -11,24 +11,10 @@ updates:
 
   - package-ecosystem: npm
     directory: /
-    schedule:
-      interval: weekly
-    cooldown:
-      default-days: 7
-    groups:
-      npm-dependencies:
-        patterns:
-          - "*"
+    open-pull-requests-limit: 0
 
   - package-ecosystem: uv
     directories:
       - /apps/*
       - /agents/*
-    schedule:
-      interval: weekly
-    cooldown:
-      default-days: 7
-    groups:
-      uv-dependencies:
-        patterns:
-          - "*"
+    open-pull-requests-limit: 0
