@@ -3,13 +3,13 @@ title: A2A Client Integration
 description: Create the A2A client, fulfill agent demands, and handle streaming events
 ---
 
-To communicate with agents, you use the A2A protocol client to send messages and receive streaming events. The Kagenti ADK provides helpers that turn those events into UI updates. This guide shows how to integrate `@a2a-js/sdk` with the Kagenti ADK helpers, mirroring the same flow used in `adk-ui`.
+To communicate with agents, you use the A2A protocol client to send messages and receive streaming events. The Kagenti ADK SDK provides both the A2A client transport and helpers that turn stream events into UI updates.
 
 If you only need the fast path, start with **[Getting Started](./getting-started)**.
 
 ## Prereqs
 
-- **Packages installed**: `@kagenti/adk` and `@a2a-js/sdk`
+- **Packages installed**: `@kagenti/adk` and `eventsource-parser`
 - **Platform base URL** and **provider ID**
 - **CORS enabled on the server** for your frontend origin when running in a browser (or use a same-origin proxy). See **[Cross-Origin Resource Sharing Configuration](../deploy-adk/deployment-guide#cross-origin-resource-sharing-configuration)**.
 - **User access token** (for platform API calls)
@@ -19,7 +19,7 @@ If you only need the fast path, start with **[Getting Started](./getting-started
 
 - Create a platform API client with the user access token.
 - List providers, pick a `providerId`, then create a `context` and `contextToken`.
-- Create the A2A client with the `contextToken` and start a message stream.
+- Create the A2A client with `buildAgentClient({ baseUrl, providerId, token })` and start a message stream.
 
 The advanced sections assume you already have `client`, `context`, and `contextToken` from the quick start. If not, see **[Getting Started](./getting-started)**.
 
@@ -80,9 +80,9 @@ See **[Agent Requirements](./agent-requirements)** for the available service and
 </Warning>
 
 <Warning>
-  **State value compatibility**
+  **Do not use `@a2a-js/sdk` `ClientFactory`**
 
-  The Kagenti ADK SDK uses uppercase state constants (e.g., `TASK_STATE_AUTH_REQUIRED`, `TASK_STATE_INPUT_REQUIRED`) internally, while `@a2a-js/sdk` emits lowercase states (e.g., `auth-required`, `input-required`). The `handleTaskStatusUpdate` helper handles this mapping for you, but if you write custom state checks, use the lowercase values from `@a2a-js/sdk` events directly.
+  The Kagenti ADK platform proxy serves agent cards without the `url` field that `@a2a-js/sdk` requires for transport negotiation. Use `buildAgentClient` from `@kagenti/adk` instead, which handles the JSON-RPC + SSE transport directly.
 </Warning>
 
 ### 2. Send the initial message stream
@@ -92,13 +92,11 @@ Start a task by sending the user prompt that triggers the project brief flow.
 ```typescript
 const stream = client.sendMessageStream({
   message: {
-    kind: "message",
-    role: "user",
     messageId: crypto.randomUUID(),
+    role: "ROLE_USER",
     contextId: context.id,
     parts: [
       {
-        kind: "text",
         text: "Draft a short project brief for a new onboarding flow. Ask me for any details you need.",
       },
     ],
@@ -109,12 +107,14 @@ const stream = client.sendMessageStream({
 
 ### 3. Handle streaming updates and show the form
 
-Use `handleTaskStatusUpdate` to detect form requests and capture the task ID so you can continue the same task. Streamed output arrives primarily via `status-update` events; `message` events are the fallback for non-streaming agents.
+Use `handleTaskStatusUpdate` to detect form requests and capture the task ID so you can continue the same task. Streamed output arrives primarily via `statusUpdate` events; `message` events are the fallback for non-streaming agents.
+
+The stream yields `StreamResponse` objects — a union of `{ statusUpdate }`, `{ message }`, `{ artifactUpdate }`, and `{ task }`. Use `"statusUpdate" in event` checks to discriminate.
 
 <Warning>
   **Streaming text must live in persistent state, not a temporary variable**
 
-  Many agents send their entire response via `status-update` events and never emit a separate `message` event. If you render streaming text in temporary state and clear it when the stream ends, the response will vanish. Instead, use the **placeholder pattern**: add a placeholder message to your message list before streaming starts, update it in-place as events arrive, and mark it complete when the stream ends.
+  Many agents send their entire response via `statusUpdate` events and never emit a separate `message` event. If you render streaming text in temporary state and clear it when the stream ends, the response will vanish. Instead, use the **placeholder pattern**: add a placeholder message to your message list before streaming starts, update it in-place as events arrive, and mark it complete when the stream ends.
 </Warning>
 
 ```typescript
@@ -127,34 +127,35 @@ const placeholderId = crypto.randomUUID();
 addMessage({ id: placeholderId, role: "agent", parts: [], isStreaming: true });
 
 for await (const event of stream) {
-  if (event.kind === "task") {
-    taskId = event.id;
+  if ("task" in event && event.task) {
+    taskId = event.task.id;
   }
 
-  if (event.kind === "status-update") {
-    taskId = event.taskId;
+  if ("statusUpdate" in event && event.statusUpdate) {
+    taskId = event.statusUpdate.taskId;
 
     // UI actions like forms, approvals, secrets, OAuth
-    for (const update of handleTaskStatusUpdate(event)) {
+    for (const update of handleTaskStatusUpdate(event.statusUpdate)) {
       if (update.type === TaskStatusUpdateType.FormRequired) {
         renderForm(update.form);
       }
     }
 
     // 2. Update the placeholder in-place as streaming text arrives
-    if (event.status.message) {
+    const msg = event.statusUpdate.status?.message;
+    if (msg) {
       updateMessage(placeholderId, {
-        parts: event.status.message.parts,
-        metadata: event.status.message.metadata,
+        parts: msg.parts,
+        metadata: msg.metadata,
       });
     }
   }
 
   // 3. If a final message arrives, replace placeholder content (non-streaming agents)
-  if (event.kind === "message") {
+  if ("message" in event && event.message) {
     updateMessage(placeholderId, {
-      parts: event.parts,
-      metadata: event.metadata,
+      parts: event.message.parts,
+      metadata: event.message.metadata,
     });
   }
 }
@@ -196,12 +197,11 @@ const userMetadata = await resolveUserMetadata({
 
 const responseStream = client.sendMessageStream({
   message: {
-    kind: "message",
-    role: "user",
     messageId: crypto.randomUUID(),
+    role: "ROLE_USER",
     contextId: context.id,
     taskId,
-    parts: [{ kind: "text", text: "Here are the project details." }],
+    parts: [{ text: "Here are the project details." }],
     metadata: { ...agentMetadata, ...userMetadata },
   },
 });
@@ -228,21 +228,22 @@ const placeholderId = crypto.randomUUID();
 addMessage({ id: placeholderId, role: "agent", parts: [], isStreaming: true });
 
 for await (const event of responseStream) {
-  if (event.kind === "status-update" && event.status.message) {
+  if ("statusUpdate" in event && event.statusUpdate?.status?.message) {
+    const msg = event.statusUpdate.status.message;
     updateMessage(placeholderId, {
-      parts: event.status.message.parts,
-      metadata: event.status.message.metadata,
+      parts: msg.parts,
+      metadata: msg.metadata,
     });
   }
 
-  if (event.kind === "artifact-update") {
-    renderArtifact(event.artifact);
+  if ("artifactUpdate" in event && event.artifactUpdate) {
+    renderArtifact(event.artifactUpdate.artifact);
   }
 
-  if (event.kind === "message") {
+  if ("message" in event && event.message) {
     updateMessage(placeholderId, {
-      parts: event.parts,
-      metadata: event.metadata,
+      parts: event.message.parts,
+      metadata: event.message.metadata,
     });
   }
 }
@@ -262,7 +263,7 @@ const cancel = async () => {
 };
 
 for await (const event of responseStream) {
-  if (event.kind === "status-update" && event.status.state === "canceled") {
+  if ("statusUpdate" in event && event.statusUpdate?.status?.state === "canceled") {
     renderCanceledState();
     break;
   }
@@ -273,18 +274,20 @@ for await (const event of responseStream) {
 
 ## Basic concepts: tasks, status updates, and streaming output
 
-Kagenti ADK’s A2A streaming is task-based. A single `sendMessageStream` call can yield several event shapes, and you should handle all of them:
+Kagenti ADK’s A2A streaming is task-based. A single `sendMessageStream` call yields `StreamResponse` objects — a union with these shapes:
 
-- `task`: emits the initial Task object. Capture `task.id`, and use `task.status` (and optional `history`/`artifacts`) to seed your UI state.
-- `status-update`: emits a task status transition. When the agent is streaming, incremental output is typically delivered via `event.status.message` (a `Message` payload attached to the status).
-- `artifact-update`: emits artifacts as they are generated or updated (useful for streamed files, canvases, or structured outputs).
-- `message`: emits a standalone Message. This is common for non‑streaming agents and may also appear as a final response.
+- `{ task }`: the initial Task object. Capture `task.id`, and use `task.status` (and optional `history`/`artifacts`) to seed your UI state.
+- `{ statusUpdate }`: a task status transition. When the agent is streaming, incremental output is typically delivered via `event.statusUpdate.status.message`.
+- `{ artifactUpdate }`: artifacts as they are generated or updated (useful for streamed files, canvases, or structured outputs).
+- `{ message }`: a standalone Message. This is common for non‑streaming agents and may also appear as a final response.
 
-Key detail for Kagenti ADK streaming: **incremental output usually arrives inside `status-update` events** (`event.status.message`). If you only render `message` events, you may miss streamed output.
+Use `"statusUpdate" in event` to discriminate between shapes.
+
+Key detail for Kagenti ADK streaming: **incremental output usually arrives inside `statusUpdate` events** (`event.statusUpdate.status.message`). If you only render `message` events, you may miss streamed output.
 
 ## Handling failed states
 
-Tasks can fail at any point during streaming. Failed or rejected updates arrive as `status-update` events with `event.status.state` set to `failed` or `rejected`. In those cases:
+Tasks can fail at any point during streaming. Failed or rejected updates arrive as `statusUpdate` events with `status.state` set to `failed` or `rejected`. In those cases:
 
 - Read structured error metadata from the status message (if present).
 - Fall back to a generic error message if no metadata is provided.
@@ -296,11 +299,11 @@ import { errorExtension, extractUiExtensionData } from "@kagenti/adk";
 const readError = extractUiExtensionData(errorExtension);
 
 for await (const event of responseStream) {
-  if (event.kind === "status-update") {
-    const state = event.status.state;
+  if ("statusUpdate" in event && event.statusUpdate) {
+    const state = event.statusUpdate.status?.state;
 
     if (state === "failed" || state === "rejected") {
-      const errorMetadata = readError(event.status.message?.metadata);
+      const errorMetadata = readError(event.statusUpdate.status?.message?.metadata);
 
       renderError(errorMetadata?.message ?? "Agent error");
 
@@ -315,7 +318,8 @@ For more about error handling, see **[Error Handling](./error-handling)**.
 
 ## Common pitfalls
 
+- **Using `@a2a-js/sdk` `ClientFactory`**: the Kagenti ADK platform proxy serves agent cards without the `url` field that `@a2a-js/sdk` requires. Use `buildAgentClient` from `@kagenti/adk` instead.
 - **Wrong token in A2A requests**: use the *context token* for A2A fetches, not the user access token.
 - **Missing metadata merge**: merge agent card fulfillments with user metadata when you send responses.
-- **Streaming text vanishes**: many agents never emit a `message` event — the entire response arrives via `status-update`. Use the placeholder pattern (see step 3) so accumulated text lives in the message list, not ephemeral state.
+- **Streaming text vanishes**: many agents never emit a `message` event — the entire response arrives via `statusUpdate`. Use the placeholder pattern (see step 3) so accumulated text lives in the message list, not ephemeral state.
 - **Node fetch missing**: Node < 18 requires a `fetch` polyfill or custom `fetch` passed to the API client.

@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import type { Part, Task, TaskArtifactUpdateEvent, TaskStatusUpdateEvent } from '@kagenti/adk';
+import type { A2AClient, Part, Task, TaskArtifactUpdateEvent, TaskStatusUpdateEvent } from '@kagenti/adk';
 import { extractTextFromMessage, handleAgentCard, handleTaskStatusUpdate, resolveUserMetadata } from '@kagenti/adk';
 import { defaultIfEmpty, filter, lastValueFrom, Subject } from 'rxjs';
 import { match, P } from 'ts-pattern';
@@ -15,7 +15,6 @@ import type { TaskId } from '#modules/tasks/api/types.ts';
 
 import { getAgentClient } from './agent-card';
 import { AGENT_ERROR_MESSAGE } from './constants';
-import type { A2AClient } from './jsonrpc-client';
 import { processArtifactMetadata, processMessageMetadata, processParts } from './part-processors';
 import { applyPatches, extractStreamingPatches } from './streaming';
 import type { ChatResult, TaskStatusUpdateResultWithTaskId } from './types';

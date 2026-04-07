@@ -3,12 +3,11 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+import type { A2AClient } from '@kagenti/adk';
 import { buildAgentClient } from '@kagenti/adk';
 
 import { UnauthenticatedError } from '#api/errors.ts';
 import { getBaseUrl } from '#utils/api/getBaseUrl.ts';
-
-import type { A2AClient } from './jsonrpc-client';
 
 export async function getAgentClient(providerId: string, token: string): Promise<A2AClient> {
   return buildAgentClient({

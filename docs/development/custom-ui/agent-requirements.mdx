@@ -353,8 +353,8 @@ flows.
 import { handleTaskStatusUpdate, TaskStatusUpdateType } from '@kagenti/adk';
 
 for await (const event of stream) {
-  if (event.kind === 'status-update') {
-    handleTaskStatusUpdate(event).forEach((result) => {
+  if ("statusUpdate" in event && event.statusUpdate) {
+    handleTaskStatusUpdate(event.statusUpdate).forEach((result) => {
       switch (result.type) {
         case TaskStatusUpdateType.FormRequired:
           // Render result.form

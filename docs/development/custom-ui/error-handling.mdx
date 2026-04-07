@@ -64,7 +64,7 @@ When tasks fail or are rejected, agents can emit an error extension payload. Rea
 import { errorExtension, extractUiExtensionData } from "@kagenti/adk";
 
 const readError = extractUiExtensionData(errorExtension);
-const errorMetadata = readError(event.status.message?.metadata);
+const errorMetadata = readError(event.statusUpdate?.status?.message?.metadata);
 
 if (errorMetadata) {
   console.error(errorMetadata.message ?? "Agent error");
