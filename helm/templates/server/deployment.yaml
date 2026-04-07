@@ -358,6 +358,10 @@ spec:
               value: "http://otel-collector.kagenti-system:8335"
             - name: TELEMETRY__PHOENIX_URL
               value: "http://phoenix.kagenti-system:6006"
+            {{- if .Values.exampleAgent.enabled }}
+            - name: SEED_PROVIDER_URLS
+              value: '["http://example-agent-svc:{{ .Values.exampleAgent.service.port }}"]'
+            {{- end }}
 
           volumeMounts:
             {{- if and (include "kagenti-adk.databaseSslEnabled" .) .Values.externalDatabase.sslRootCert }}

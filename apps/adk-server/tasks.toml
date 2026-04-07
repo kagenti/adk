@@ -365,6 +365,8 @@ kagenti-adk:
     enabled: true
   docling:
     enabled: true
+  exampleAgent:
+    enabled: false
 ' > "$CONFIG_FILE"
 
 {{ mise_bin }} run adk:start -v --vm-name=${VM_NAME} --skip-login -f "$CONFIG_FILE"
@@ -434,6 +436,8 @@ kagenti-adk:
     enabled: false
   docling:
     enabled: true
+  exampleAgent:
+    enabled: false
 ' > "$CONFIG_FILE"
 
 {{ mise_bin }} run adk:start --vm-name=${VM_NAME} --skip-login -f "$CONFIG_FILE" --set ui.enabled=false
@@ -487,7 +491,8 @@ VM_NAME=integration-test-run
 {{ mise_bin }} run adk:start \
     --vm-name="$VM_NAME" \
     --set kagenti-adk:redis.enabled=true \
-    --set kagenti-adk:ui.enabled=false
+    --set kagenti-adk:ui.enabled=false \
+    --set kagenti-adk:exampleAgent.enabled=false
 
 eval "$( {{ mise_bin }} run adk:shell --vm-name="$VM_NAME" )"
 

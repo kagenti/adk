@@ -41,6 +41,7 @@ from adk_server.api.routes.vector_stores import router as vector_stores_router
 from adk_server.api.utils import format_openai_error
 from adk_server.bootstrap import bootstrap_dependencies_sync
 from adk_server.configuration import Configuration
+from adk_server.domain.models.provider import NetworkProviderLocation, SourceType
 from adk_server.exceptions import (
     PlatformError,
     RateLimitExceededError,
@@ -48,6 +49,7 @@ from adk_server.exceptions import (
 from adk_server.jobs.crons.model_provider import check_model_provider_registry, update_model_state_and_cache
 from adk_server.jobs.crons.provider import sync_kagenti_agents
 from adk_server.run_workers import run_workers
+from adk_server.service_layer.services.providers import ProviderService
 from adk_server.service_layer.services.user_feedback import UserFeedbackService
 from adk_server.service_layer.services.users import UserService
 from adk_server.telemetry import INSTRUMENTATION_NAME, shutdown_telemetry
@@ -209,7 +211,20 @@ def app(*, dependency_overrides: Container | None = None, enable_workers: bool =
             register_telemetry()
 
             # Ensure admin user exists
-            await di[UserService].ensure_user(email=configuration.admin_user_email)
+            admin = await di[UserService].ensure_user(email=configuration.admin_user_email)
+
+            # Seed default agent providers
+            for url in configuration.seed_provider_urls:
+                try:
+                    await di[ProviderService].create_provider(
+                        user=admin,
+                        location=NetworkProviderLocation(root=url),
+                        origin=url,
+                        source_type=SourceType.API,
+                    )
+                    logger.info(f"Seeded provider from {url}")
+                except Exception as ex:
+                    logger.warning(f"Failed to seed provider {url}: {ex}")
 
             async with (
                 procrastinate_app.open_async(),
