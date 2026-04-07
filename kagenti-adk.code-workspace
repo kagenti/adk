@@ -25,6 +25,10 @@
       "path": "apps/adk-ui",
     },
     {
+      "name": "docs-site",
+      "path": "apps/docs-site",
+    },
+    {
       "name": "agent-chat",
       "path": "agents/chat",
     },
