@@ -88,5 +88,5 @@ catalog:
   typescript: ^5.9.3
   usehooks-ts: ^3.1.1
 
-minimumReleaseAge: 10080
+minimumReleaseAge: 4320
 minimumReleaseAgeExclude: ["@kagenti/adk", "@kagenti/adk-ui", "@kagenti/adk-lint-config", "@kagenti/docs-site"]

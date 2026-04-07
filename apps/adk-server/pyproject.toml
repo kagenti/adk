@@ -128,5 +128,5 @@ project-includes = [
 ]
 
 [tool.uv]
-exclude-newer = "7 days"
+exclude-newer = "3 days"
 exclude-newer-package = { kagenti-adk = false }
