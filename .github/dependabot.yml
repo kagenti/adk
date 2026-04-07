@@ -11,10 +11,14 @@ updates:
 
   - package-ecosystem: npm
     directory: /
+    schedule: # required by schema, but redundant with open-pull-requests-limit: 0
+      interval: weekly
     open-pull-requests-limit: 0
 
   - package-ecosystem: uv
     directories:
       - /apps/*
       - /agents/*
+    schedule: # required by schema, but redundant with open-pull-requests-limit: 0
+      interval: weekly
     open-pull-requests-limit: 0

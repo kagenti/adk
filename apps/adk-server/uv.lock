@@ -3,12 +3,11 @@ revision = 3
 requires-python = "==3.14.*"
 
 [options]
-exclude-newer = "2026-03-25T07:02:22.589816Z"
-exclude-newer-span = "P7D"
+exclude-newer = "2026-04-04T10:24:16.263574Z"
+exclude-newer-span = "P3D"
 
 [options.exclude-newer-package]
 kagenti-adk = false
-kagenti-cli = false
 
 [[package]]
 name = "a2a-sdk"
