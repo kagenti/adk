@@ -70,8 +70,12 @@ Import the necessary components from the Kagenti ADK.
 Add an `EnvVar` list to the `variables` field in your `AgentDetail` configuration.
 </Step>
 
-<Step title="Deploy your agent and pass the variables">
-Pass environment variables when deploying your agent using `kagenti-adk add --env KEY=VALUE` or via an env file with `--env-file .env`. See [Deploy Your Agents](../deploy-agents/deploy-your-agents) for details.
+<Step title="Deploy your agent to the Kagenti ADK">
+Use `kagenti-adk add` command to [deploy your agent in Kagenti ADK](../deploy-agents/deploy-your-agent)
+</Step>
+
+<Step title="Configure the variables via CLI">
+Configure environment variables for your agent using `kagenti-adk env add "Name or ID of your Agent" KEY=VALUE`.
 </Step>
 
 
@@ -80,26 +84,38 @@ Use `os.getenv()` to access the environment variables in your agent code.
 </Step>
 </Steps>
 
-## Providing Environment Variables
+## Managing Environment Variables
 
-When deploying your agent to Kagenti ADK, you supply environment variables at the time of deployment using the `--env` flag on `kagenti-adk add`. You can pass multiple variables and also load them from a file.
+Once your agent is deployed to Kagenti ADK, you need to provide the environment variables it requires. You can manage these variables using the `kagenti-adk env` CLI commands.
 
-### Adding Environment Variables at Deploy Time
+### Adding Environment Variables
 
-Use one or more `--env KEY=VALUE` flags when adding your agent:
+To provide environment variables to your agent, use the `kagenti-adk env add` command:
 
 ```bash
-# Pass individual variables
-kagenti-adk add <image> --env FIRST_VAR=VALUE --env SECOND_VAR=VALUE
-
-# Or use an env file (KEY=VALUE per line)
-kagenti-adk add <image> --env-file path/to/.env
+kagenti-adk env add "Name or ID of the agent" FIRST_VAR=VALUE SECOND_VAR=VALUE ...
 ```
 
 <Tip>
-You can combine `--env` and `--env-file`. Individual `--env` entries take precedence over the file.
+You can add multiple variables at once by including them all in a single command.
 </Tip>
+
+### Listing Environment Variables
+
+To view the environment variables configured for an agent:
+
+```bash
+kagenti-adk env list "Name or ID of the agent"
+```
+
+### Removing Environment Variables
+
+To remove an environment variable from an agent:
+
+```bash
+kagenti-adk env remove "Name or ID of the agent" VARIABLE_NAME
+```
 
 ### Checking Missing Variables
 
-If a required variable is missing, your agent will likely fail to start. Run `kagenti-adk list` — an agent in `error` state will show the error message in the `Info` column, which may indicate the missing variable.
+When a required variable hasn't been provided, you can see this in the agent list. Use `kagenti-adk list` to view all agents - the `INFO` column shows which variables still need to be configured.

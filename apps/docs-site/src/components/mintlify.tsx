@@ -16,6 +16,7 @@
 
 import React from "react";
 import Link from "next/link";
+import { PreBlock } from "./pre-block";
 
 function Callout({
   type,
@@ -172,6 +173,7 @@ function MdxLink(props: React.AnchorHTMLAttributes<HTMLAnchorElement>) {
 }
 
 export const mintlifyComponents = {
+  pre: PreBlock,
   a: MdxLink,
   Tip,
   Warning,
