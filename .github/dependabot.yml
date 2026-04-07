@@ -1,16 +1,15 @@
-# Dependabot configuration file, disabled for now due to increased security risk of new package versions being compromised.
-#
-# version: 2
-# updates:
-#   - package-ecosystem: github-actions
-#     directory: /
-#     schedule:
-#       interval: weekly
-#     groups:
-#       github-actions:
-#         patterns:
-#           - "*"
-#
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      github-actions:
+        patterns:
+          - "*"
+
+# Disabled for now due to increased security risk of new package versions being compromised.
 #   - package-ecosystem: npm
 #     directory: /
 #     schedule:
