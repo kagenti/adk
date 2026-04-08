@@ -14,7 +14,6 @@ import type { FormDemands, FormFulfillments } from '../../a2a/extensions/service
 import type { LLMDemands, LLMFulfillments } from '../../a2a/extensions/services/llm/types';
 import type { MCPDemands, MCPFulfillments } from '../../a2a/extensions/services/mcp/types';
 import type { CanvasEditRequest } from '../../a2a/extensions/ui/canvas/types';
-import type { SettingsDemands, SettingsFulfillments } from '../../a2a/extensions/ui/settings/types';
 import type { ContextToken } from '../../api/contexts/types';
 
 export interface A2AExtension<U extends string> {
@@ -35,10 +34,6 @@ export type Fulfillments = Partial<{
   embedding: (demand: EmbeddingDemands) => Promise<EmbeddingFulfillments>;
   mcp: (demand: MCPDemands) => Promise<MCPFulfillments>;
   oauth: (demand: OAuthDemands) => Promise<OAuthFulfillments>;
-  /**
-   * @deprecated - keeping this for backwards compatibility, use form extension with "settings_form" demand instead
-   */
-  settings: (demand: SettingsDemands) => Promise<SettingsFulfillments>;
   secrets: (demand: SecretDemands) => Promise<SecretFulfillments>;
   form: (demand: FormDemands) => Promise<FormFulfillments>;
   oauthRedirectUri: () => string | null;

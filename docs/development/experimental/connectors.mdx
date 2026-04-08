@@ -23,7 +23,7 @@ Core of connectors API consists of the following endpoints:
 The connector can then be used by any MCP client at `/api/v1/connectors/{id}/mcp` endpoint. For example, to inspect a connector using MCP Inspector:
 
 ```bash
-npx -y @modelcontextprotocol/inspector --transport http --server-url http://localhost:8333/api/v1/connectors/{id}/mcp
+npx -y @modelcontextprotocol/inspector --transport http --server-url http://adk-api.localtest.me:8080/api/v1/connectors/{id}/mcp
 ```
 
 Additionally, the connectors API exposes a catalog of preconfigured presets for common connectors:
@@ -192,7 +192,7 @@ connector = await Connector.create(
 #### Delete a Connector
 ```python
 await connector.delete()
-await connecrtor.wait_for_deletion(). # Wait until the connector is deleted from the platform
+await connector.wait_for_deletion() # Wait until the connector is deleted from the platform
 ```
 
 #### List Connectors

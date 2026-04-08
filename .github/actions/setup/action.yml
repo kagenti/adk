@@ -118,12 +118,12 @@ runs:
       uses: actions/cache@cdf6c1fa76f9f475f3d7449005a359c84ca0f306 # v5
       with:
         path: apps/microshift-vm/dist/${{ env.ARCH }}
-        key: microshift-vm-dist-v1-${{ runner.os }}-${{ env.ARCH }}-${{ hashFiles('apps/microshift-vm/**') }}
+        key: microshift-vm-dist-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('apps/microshift-vm/cloud-init/**', 'apps/microshift-vm/rootfs/**', 'apps/microshift-vm/*') }}
     - if: inputs.save_cache != 'true'
       uses: actions/cache/restore@cdf6c1fa76f9f475f3d7449005a359c84ca0f306 # v5
       with:
         path: apps/microshift-vm/dist/${{ env.ARCH }}
-        key: microshift-vm-dist-v1-${{ runner.os }}-${{ env.ARCH }}-${{ hashFiles('apps/microshift-vm/**') }}
+        key: microshift-vm-dist-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('apps/microshift-vm/cloud-init/**', 'apps/microshift-vm/rootfs/**', 'apps/microshift-vm/*') }}
 
     - uses: jdx/mise-action@1648a7812b9aeae629881980618f079932869151 # v4
       with:

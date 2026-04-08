@@ -1,0 +1,105 @@
+---
+title: "Environment Variables"
+description: "Declare which environment variables the agent requires so they can be provided by the Kagenti ADK runtime."
+---
+
+Sometimes you need to configure your agent with environment variables that should be provided by the runtime.
+
+For example, you might want to globally enable or disable thinking mode for all users of your agent, or configure API endpoints, feature flags, or other environment settings.
+
+Normally, you would set these environment variables directly in your deployment environment. However, when your agent is deployed to Kagenti ADK via the `kagenti-adk add` command, the platform manages the runtime environment and you can't directly control it.
+
+The Kagenti ADK platform allows you to declare environment variable requirements through `AgentDetail`. The platform will then provide these variables to your agent at runtime, and you can access them using standard `os.getenv()` calls.
+
+<Tip>
+Environment variables declared in `AgentDetail` are automatically provided by the Kagenti ADK platform when your agent is deployed via `kagenti-adk add`. When running your agent locally or with auto-registration via SDK, you're responsible for providing these variables yourself.
+</Tip>
+
+## Basic Environment Variables Example
+
+Here's how to request environment variables for your agent:
+
+{/* <!-- embedme examples/agent-integration/env-variables/basic-environment-variables/src/basic_environment_variables/agent.py --> */}
+```python
+# Copyright 2026 © IBM Corp.
+# SPDX-License-Identifier: Apache-2.0
+
+import os
+
+from a2a.types import Message
+from kagenti_adk.a2a.extensions import AgentDetail, EnvVar
+from kagenti_adk.server import Server
+from kagenti_adk.server.context import RunContext
+
+server = Server()
+
+
+@server.agent(
+    detail=AgentDetail(
+        interaction_mode="multi-turn",
+        variables=[
+            EnvVar(name="THINKING_ENABLED", description="Whether to enable thinking mode for all users", required=True)
+        ],
+    )
+)
+async def basic_environment_variables_example(input: Message, context: RunContext):
+    """Agent that uses environment variables for configuration"""
+    thinking_enabled = os.getenv("THINKING_ENABLED", "false").lower() == "true"
+
+    if thinking_enabled:
+        yield "Thinking mode is enabled. I'll show my reasoning process."
+    else:
+        yield "Thinking mode is disabled. I'll provide direct responses."
+
+
+def run():
+    server.run(host=os.getenv("HOST", "127.0.0.1"), port=int(os.getenv("PORT", 8000)))
+
+
+if __name__ == "__main__":
+    run()
+
+```
+
+<Steps>
+<Step title="Import AgentDetail and EnvVar">
+Import the necessary components from the Kagenti ADK.
+</Step>
+
+<Step title="Declare environment variables">
+Add an `EnvVar` list to the `variables` field in your `AgentDetail` configuration.
+</Step>
+
+<Step title="Deploy your agent and pass the variables">
+Pass environment variables when deploying your agent using `kagenti-adk add --env KEY=VALUE` or via an env file with `--env-file .env`. See [Deploy Your Agent](../deploy-agents/deploy-your-agent) for details.
+</Step>
+
+
+<Step title="Access environment variables">
+Use `os.getenv()` to access the environment variables in your agent code.
+</Step>
+</Steps>
+
+## Providing Environment Variables
+
+When deploying your agent to Kagenti ADK, you supply environment variables at the time of deployment using the `--env` flag on `kagenti-adk add`. You can pass multiple variables and also load them from a file.
+
+### Adding Environment Variables at Deploy Time
+
+Use one or more `--env KEY=VALUE` flags when adding your agent:
+
+```bash
+# Pass individual variables
+kagenti-adk add <image> --env FIRST_VAR=VALUE --env SECOND_VAR=VALUE
+
+# Or use an env file (KEY=VALUE per line)
+kagenti-adk add <image> --env-file path/to/.env
+```
+
+<Tip>
+You can combine `--env` and `--env-file`. Individual `--env` entries take precedence over the file.
+</Tip>
+
+### Checking Missing Variables
+
+If a required variable is missing, your agent will likely fail to start. Run `kagenti-adk list` — an agent in `error` state will show the error message in the `Info` column, which may indicate the missing variable.

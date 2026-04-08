@@ -1,0 +1,181 @@
+---
+title: Monitoring & Observability
+description: Monitor traces, logs, and metrics from your agents and platform
+---
+
+Kagenti ADK provides built-in observability through [OpenTelemetry (OTLP)](https://opentelemetry.io/). This allows you to monitor agent health, performance metrics, and execution traces in real-time. The stack can integrate with [Arize Phoenix](https://docs.arize.com/phoenix) for local visualization or be routed to any OTLP-compliant backend such as [Langfuse](https://langfuse.com/).
+
+
+```mermaid
+graph LR
+    %% Sources
+    Kagenti ADK[Kagenti ADK Server]
+    Agent[Agent Providers]
+
+    %% Collector
+    OTLP[OpenTelemetry<br/>Collector<br/>:4318]
+
+    %% Destinations
+    Phoenix[Phoenix<br/>:6006<br/>⚙ Opt-in]
+    Langfuse[Langfuse<br/>Cloud<br/>⚙ Opt-in]
+    Custom[Custom<br/>Backend<br/>⚙ Opt-in]
+
+    %% Data flows
+    Kagenti ADK -->|traces/metrics| OTLP
+    Agent -->|traces/metrics| OTLP
+
+    OTLP --> Phoenix
+    OTLP --> Langfuse
+    OTLP --> Custom
+
+    %% Simple styling
+    classDef default fill:#f9f9f9,stroke:#333,stroke-width:2px,color:#000
+    classDef collector fill:#e3f2fd,stroke:#1976d2,stroke-width:2px,color:#000
+    classDef optional fill:#fff3e0,stroke:#f57c00,stroke-width:2px,stroke-dasharray: 5 5,color:#000
+
+
+    class OTLP collector
+    class Phoenix,Langfuse,Custom optional
+```
+
+For telemetry to flow successfully, it must be enabled at three levels:
+<Steps>
+   <Step title="The Agent Logic">
+  You must instrument your agent logic to capture LLM calls and tool usage.
+   </Step>
+
+   <Step title="The Python SDK">
+  The server must be configured to export telemetry data by setting `configure_telemetry=True`.
+   </Step>
+
+   <Step title="The Kagenti ADK Platform">
+  The infrastructure must be running a collector and a backend (like Arize Phoenix or Langfuse) to receive and display the data. The OTel collector and Phoenix are disabled by default and must be explicitly enabled.
+   </Step>
+
+</Steps>
+
+## Agent SDK Configuration
+Before configuring an observability platform, your agent code must be "telemetry-aware." This configuration applies to all backends, whether you are using local Phoenix or a cloud provider like Langfuse.
+
+You must initialize instrumentation at the agent logic level and enable the export flag in the Kagenti ADK:
+
+```python
+from kagenti_adk.server import Server
+# 1. Agent Level: Import your specific instrumentor
+# from openinference.instrumentation.beeai import BeeAIInstrumentor
+
+# Initialize the instrumentor to capture framework events
+# BeeAIInstrumentor().instrument()
+
+server = Server()
+
+@server.agent()
+async def my_agent():
+    ...
+
+# 2. SDK Level: Enable the bridge to the platform collector
+server.run(configure_telemetry=True)
+```
+
+By default, the SDK sends telemetry to `http://otel-collector.localtest.me:8080`. You can override this by setting the `OTEL_EXPORTER_OTLP_ENDPOINT` environment variable.
+
+<Tip>
+  For an enhanced user experience and richer trace detail, consider instrumenting agents using the [OpenInference](https://github.com/Arize-ai/openinference/) standard for custom instrumentation.
+</Tip>
+
+## Advanced Observability: Traces & Metrics
+
+The OTel collector and Phoenix are **disabled by default** in the Kagenti ADK platform. You can enable them to visualize agent traces locally, or route telemetry to a cloud provider like [Langfuse](https://langfuse.com/).
+
+Telemetry details include:
+- Platform version and runtime details
+- Agent execution traces
+
+### Enable Phoenix Observability
+
+<Warning>
+  **License Notice**: Phoenix is [licensed under the Elastic License v2 (ELv2)](https://github.com/Arize-ai/phoenix/blob/main/LICENSE). It is disabled by default in Kagenti ADK. By enabling it, you acknowledge responsibility for ensuring compliance with these terms in your specific use case.
+  </Warning>
+
+<Steps>
+   <Step title="Enable OTel and Phoenix">
+
+Start the platform with the OTel collector and Phoenix enabled:
+```sh
+kagenti-adk platform start --set kagenti-deps:components.otel.enabled=true
+```
+
+To disable them again later, omit the flag or pass:
+```sh
+kagenti-adk platform start --set kagenti-deps:components.otel.enabled=false
+```
+
+  </Step>
+
+   <Step title="Run an Agent">
+
+Execute an agent to generate telemetry data:
+```sh
+kagenti-adk run <agent-name> "Hello"
+```
+
+   </Step>
+   <Step title="View Traces in Phoenix">
+
+Open [http://phoenix.localtest.me:8080](http://phoenix.localtest.me:8080) in your browser and navigate to the **default** project to explore the collected traces.
+
+   </Step>
+</Steps>
+
+
+### Enable Langfuse Observability
+
+To route traces to [Langfuse](https://langfuse.com/), you need to enable the OTel collector and provide Langfuse-specific configuration via a values file.
+
+<Steps>
+
+<Step title="Get Langfuse credentials">
+1. Sign up at [cloud.langfuse.com](https://cloud.langfuse.com)
+2. Create a project and generate API keys
+3. Encode your keys: `echo -n "public_key:secret_key" | base64`
+</Step>
+
+<Step title="Create a values file">
+Create a `values.yaml` with chart-scoped sections to enable the OTel collector and configure the Langfuse exporter:
+
+```yaml
+kagenti-deps:
+  components:
+    otel:
+      enabled: true
+  # Consult the kagenti-deps chart documentation for available
+  # OTel collector configuration options to route traces to Langfuse.
+```
+
+<Tip>
+  The OTel collector configuration (exporters, processors, pipelines) is managed by the `kagenti-deps` Helm chart. Refer to its documentation for the full list of available configuration options.
+</Tip>
+</Step>
+
+<Step title="Start the platform with the configuration">
+```bash
+kagenti-adk platform start -f values.yaml
+```
+</Step>
+
+<Step title="Run and View">
+
+Execute an agent to generate data:
+```sh
+kagenti-adk run <agent-name> "Hello"
+```
+Check your Langfuse project dashboard for incoming traces and metrics.
+</Step>
+
+</Steps>
+
+## Additional Resources
+
+- **OpenTelemetry Docs**: https://opentelemetry.io/docs/
+- **Langfuse Docs**: https://langfuse.com/docs
+- **Phoenix Docs**: https://docs.arize.com/phoenix

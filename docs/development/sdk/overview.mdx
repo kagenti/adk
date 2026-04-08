@@ -1,0 +1,220 @@
+---
+title: "Python SDK Overview"
+description: "Enhance your existing AI agents with platform capabilities"
+---
+
+The Server SDK is a Python library that enhances your existing AI agents with platform capabilities. Whether you've built your agent with LangGraph, CrewAI, or custom logic, the SDK connects it to the Kagenti ADK platform, giving you instant access to runtime-configurable services, interactive UI components, and deployment infrastructure.
+
+Built on top of the [Agent2Agent Protocol (A2A)](https://a2a-protocol.org/), the SDK wraps your agent implementation and adds powerful functionality through [A2A extensions](https://a2a-protocol.org/latest/topics/extensions/). This enables your agent to leverage platform services like [LLM providers](./llm-proxy-service), [file storage](./files), [vector databases](./rag), and rich UI components. That's all without rewriting your core agent logic.
+
+<Tip>
+**Using an AI coding assistant?** The [Kagenti ADK wrapper skill](https://github.com/kagenti/adk/tree/main/skills/kagenti-adk-wrapper) can automatically adapt your existing agent to run on the platform. Install it with:
+```bash
+npx skills add kagenti/adk --skill kagenti-adk-wrapper
+```
+</Tip>
+
+## What the SDK Provides
+
+
+| Feature | Purpose |
+| :--- | :--- |
+| **Server wrapper** | Simplified server creation and agent registration |
+| **Convenience wrappers** | Simplified message types like `AgentMessage` that reduce boilerplate |
+| **Context management** | Built-in conversation history and state management |
+| **Async generator pattern** | Natural task-based execution with pause/resume capabilities |
+| **Dependency Injection Extensions** | Dependency injection for LLM service, RAG embeddings, file storage and MCP integration |
+| **UI Extensions** | Enables advanced interactive components including forms, citations and trajectory |
+
+## Server Wrapper Example
+
+Here we show server creation and agent registration:
+
+{/* <!-- embedme examples/agent-integration/overview/server-wrapper/src/server_wrapper/agent.py--> */}
+```python
+# Copyright 2026 © IBM Corp.
+# SPDX-License-Identifier: Apache-2.0
+
+import os
+
+from a2a.types import Message
+from kagenti_adk.a2a.types import AgentMessage
+from kagenti_adk.server import Server
+from kagenti_adk.server.context import RunContext
+
+server = Server()
+
+
+@server.agent()
+async def server_wrapper_example(input: Message, context: RunContext):
+    """Your agent implementation"""
+    yield AgentMessage(text="Hello from my agent!")
+
+
+def run():
+    server.run(host=os.getenv("HOST", "127.0.0.1"), port=int(os.getenv("PORT", 8000)))
+
+
+if __name__ == "__main__":
+    run()
+
+```
+
+The SDK uses a server-based architecture where you:
+1. Create a `Server` instance and 
+2. Register your agent function
+
+## Advanced Server SDK Example
+
+Here's an example that incorporates multiple Server SDK capabilities:
+
+{/* <!-- embedme examples/agent-integration/overview/advanced-server-wrapper/src/advanced_server_wrapper/agent.py--> */}
+```python
+# Copyright 2026 © IBM Corp.
+# SPDX-License-Identifier: Apache-2.0
+
+import os
+from typing import Annotated
+
+from a2a.types import Message
+from kagenti_adk.a2a.extensions import (
+    FormRender,
+    TextField,
+    FormRequestExtensionServer,
+    FormRequestExtensionSpec,
+)
+from kagenti_adk.a2a.types import AgentMessage
+from kagenti_adk.server import Server
+from kagenti_adk.server.context import RunContext
+from pydantic import BaseModel
+
+server = Server()
+
+
+class UserDetails(BaseModel):
+    name: str | None
+    email: str | None
+
+
+@server.agent()
+async def advanced_server_wrapper_example(
+    input: Message, context: RunContext, form_request: Annotated[FormRequestExtensionServer, FormRequestExtensionSpec()]
+):
+    """Agent that pauses execution to request user input"""
+    yield AgentMessage(text="I need some information from you.")
+
+    # Execution pauses here - task enters input_required state
+    # User fills out the form in the UI
+    form_data = await form_request.request_form(
+        form=FormRender(
+            title="Please provide your details",
+            fields=[
+                TextField(id="name", label="Your Name"),
+                TextField(id="email", label="Email Address"),
+            ],
+        ),
+        model=UserDetails,
+    )
+
+    # Execution resumes after user submits the form
+    if form_data:
+        yield AgentMessage(text=f"Thank you, {form_data.name}! I'll contact you at {form_data.email}.")
+    else:
+        yield AgentMessage(text="Form was not filled out.")
+
+
+def run():
+    server.run(host=os.getenv("HOST", "127.0.0.1"), port=int(os.getenv("PORT", 8000)))
+
+
+if __name__ == "__main__":
+    run()
+
+```
+
+1. Use the **Asynchronous Generator Pattern** to await the form request and pause the task while the user completes the form.
+1. **UI Extensions** are used to create the forms and add the metadata to messages.
+
+### Asynchronous Generator Pattern
+
+Agent functions are asynchronous generators that yield responses. This pattern aligns with A2A's task model:
+
+- **One function execution** = **One A2A task**
+- **Yielding data** = **Sending messages to the client**
+- **Pausing execution** = **Waiting for user input**
+
+The generator pattern is particularly powerful when your agent needs to request structured input from users.
+
+When you await a form request, execution pauses the task, allowing the user to fill out the form. Once submitted, execution resumes with the form data. The generator pattern enables agents to:
+- Stream responses incrementally
+- Yield multiple messages during a single task
+- Handle long-running operations gracefully
+
+
+### Extension System
+
+Kagenti ADK utilizes A2A extensions to extend the protocol with Kagenti ADK-specific capabilities. They enable your agent to access platform services and enhance the user interface beyond what the base A2A protocol provides.
+
+There are two types of extensions:
+
+#### UI Extensions
+
+UI extensions add extra metadata to messages, enabling the Kagenti ADK UI to render more advanced interactive components:
+
+- **Forms**: Collect structured user input through interactive forms
+- **Citations**: Display source references with clickable inline links
+- **Trajectory**: Visualize agent reasoning steps with execution traces
+
+These extensions enhance messages with metadata that the UI interprets to create rich, interactive experiences beyond standard text responses.
+
+#### Dependency Injection Service Extensions
+
+Service extensions use a dependency injection pattern where each run of the agent declares a demand that must be fulfilled by the client (consumer). The platform provides configured access to external services based on these demands:
+
+- **LLM Service**: Language model access with automatic provider selection
+- **Embedding Service**: Text embedding generation for RAG
+- **Platform API**: File storage, vector databases, and platform services
+- **MCP**: Model Context Protocol integration
+
+{/* <!-- embedme examples/agent-integration/overview/dependency-injection/src/dependency_injection/agent.py--> */}
+```python
+# Copyright 2026 © IBM Corp.
+# SPDX-License-Identifier: Apache-2.0
+
+import os
+from typing import Annotated
+
+from a2a.types import Message
+from kagenti_adk.a2a.extensions import LLMServiceExtensionServer, LLMServiceExtensionSpec
+from kagenti_adk.a2a.types import AgentMessage
+from kagenti_adk.server import Server
+from kagenti_adk.server.context import RunContext
+
+server = Server()
+
+
+@server.agent()
+async def dependency_injection_example(
+    input: Message,
+    context: RunContext,
+    llm: Annotated[LLMServiceExtensionServer, LLMServiceExtensionSpec.single_demand()],
+):
+    # The demand is fulfilled by the client - llm is provided if available
+    if llm:
+        # response = await llm.chat(messages=[...])
+        # ...
+        yield AgentMessage(text="LLM service is available.")
+    else:
+        yield AgentMessage(text="LLM service not available")
+
+
+def run():
+    server.run(host=os.getenv("HOST", "127.0.0.1"), port=int(os.getenv("PORT", 8000)))
+
+
+if __name__ == "__main__":
+    run()
+
+```
+
+

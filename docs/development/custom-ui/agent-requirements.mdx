@@ -145,49 +145,6 @@ const metadata = await resolveMetadata({
 });
 ```
 
-### Settings (deprecated)
-
-Deprecated. Planned for removal in the next release. Use [Settings Form](#settings-form) instead.
-
-This extension lives under `ui/settings` in the SDK, but it is treated as a service extension because it carries demands
-and fulfillments.
-
-```typescript
-import { handleAgentCard } from '@kagenti/adk';
-
-const { resolveMetadata } = handleAgentCard(agentCard);
-
-const metadata = await resolveMetadata({
-  settings: async (demands) => ({
-    values: Object.fromEntries(
-      demands.fields.map((field) => {
-        if (field.type === 'single_select') {
-          return [field.id, { type: 'single_select', value: field.default_value }];
-        }
-        return [
-          field.id,
-          {
-            type: 'checkbox_group',
-            values: Object.fromEntries(
-              field.fields.map((checkbox) => [checkbox.id, { value: checkbox.default_value }]),
-            ),
-          },
-        ];
-      }),
-    ),
-  }),
-});
-```
-
-#### Migration guide
-
-- Agent cards: replace the `ui/settings` extension with the `services/form` extension and move settings fields to `form_demands.settings_form`.
-- Single select: change type `single_select` to `singleselect`, and change `options` items from `{ value }` to `{ id }`.
-- Checkbox group: `checkbox_group` now requires a non empty `label`.
-- Checkbox items: `checkbox` now requires `content` for the visible text. Keep `label` populated too and map the legacy checkbox label to `content` when migrating.
-- Fulfillments: change checkbox group values from `{ values: { [id]: { value } } }` to `{ value: { [id]: boolean | null } }`.
-
-
 ### Form
 
 Provides form responses when the agent requests structured input.
@@ -261,8 +218,6 @@ const metadata = await resolveMetadata({
   },
 });
 ```
-
-Prefer `settings_form` when both `settings_form` and legacy settings demands are present.
 
 ### Platform API
 

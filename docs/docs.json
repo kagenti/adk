@@ -30,34 +30,33 @@
             ]
           },
           {
-            "group": "Deploy Agents",
+            "group": "Get Started",
             "pages": [
-              "stable/deploy-agents/wrap-existing-agents",
-              "stable/deploy-agents/building-agents",
-              "stable/deploy-agents/deploy-your-agents"
+              "stable/deploy-agents/deploy-your-agent"
             ]
           },
           {
-            "group": "Agent Integration",
+            "group": "Using the SDK",
             "pages": [
-              "stable/agent-integration/overview",
-              "stable/agent-integration/messages",
-              "stable/agent-integration/multi-turn",
-              "stable/agent-integration/files",
-              "stable/agent-integration/agent-details",
-              "stable/agent-integration/llm-proxy-service",
-              "stable/agent-integration/trajectory",
-              "stable/agent-integration/citations",
-              "stable/agent-integration/forms",
-              "stable/agent-integration/agent-settings",
-              "stable/agent-integration/secrets",
-              "stable/agent-integration/rag",
-              "stable/agent-integration/mcp",
-              "stable/agent-integration/env-variables",
-              "stable/agent-integration/error",
-              "stable/agent-integration/tool-calls",
-              "stable/agent-integration/canvas",
-              "stable/agent-integration/observability"
+              "stable/sdk/overview",
+              "stable/sdk/building-agents",
+              "stable/sdk/messages",
+              "stable/sdk/multi-turn",
+              "stable/sdk/files",
+              "stable/sdk/agent-details",
+              "stable/sdk/llm-proxy-service",
+              "stable/sdk/trajectory",
+              "stable/sdk/citations",
+              "stable/sdk/forms",
+              "stable/sdk/agent-settings",
+              "stable/sdk/secrets",
+              "stable/sdk/rag",
+              "stable/sdk/mcp",
+              "stable/sdk/env-variables",
+              "stable/sdk/error",
+              "stable/sdk/tool-calls",
+              "stable/sdk/canvas",
+              "stable/sdk/observability"
             ]
           },
           {
@@ -73,8 +72,8 @@
           {
             "group": "Deploy Kagenti ADK",
             "pages": [
-              "stable/deploy-agent-stack/deployment-guide",
-              "stable/deploy-agent-stack/authenticate-cli-to-server"
+              "stable/deploy-adk/deployment-guide",
+              "stable/deploy-adk/authenticate-cli-to-server"
             ]
           },
           {
@@ -116,35 +115,36 @@
             ]
           },
           {
-            "group": "Deploy Agents",
+            "group": "Get Started",
             "pages": [
               "development/deploy-agents/wrap-existing-agents",
               "development/deploy-agents/wrapping-guide",
               "development/deploy-agents/building-agents",
-              "development/deploy-agents/deploy-your-agents"
+              "development/deploy-agents/deploy-your-agent"
             ]
           },
           {
-            "group": "Agent Integration",
+            "group": "Using the SDK",
             "pages": [
-              "development/agent-integration/overview",
-              "development/agent-integration/messages",
-              "development/agent-integration/multi-turn",
-              "development/agent-integration/files",
-              "development/agent-integration/agent-details",
-              "development/agent-integration/llm-proxy-service",
-              "development/agent-integration/trajectory",
-              "development/agent-integration/citations",
-              "development/agent-integration/forms",
-              "development/agent-integration/agent-settings",
-              "development/agent-integration/secrets",
-              "development/agent-integration/rag",
-              "development/agent-integration/mcp",
-              "development/agent-integration/env-variables",
-              "development/agent-integration/error",
-              "development/agent-integration/tool-calls",
-              "development/agent-integration/canvas",
-              "development/agent-integration/observability"
+              "development/sdk/overview",
+              "development/sdk/building-agents",
+              "development/sdk/messages",
+              "development/sdk/multi-turn",
+              "development/sdk/files",
+              "development/sdk/agent-details",
+              "development/sdk/llm-proxy-service",
+              "development/sdk/trajectory",
+              "development/sdk/citations",
+              "development/sdk/forms",
+              "development/sdk/agent-settings",
+              "development/sdk/secrets",
+              "development/sdk/rag",
+              "development/sdk/mcp",
+              "development/sdk/env-variables",
+              "development/sdk/error",
+              "development/sdk/tool-calls",
+              "development/sdk/canvas",
+              "development/sdk/observability"
             ]
           },
           {
@@ -160,8 +160,8 @@
           {
             "group": "Deploy Kagenti ADK",
             "pages": [
-              "development/deploy-agent-stack/deployment-guide",
-              "development/deploy-agent-stack/authenticate-cli-to-server"
+              "development/deploy-adk/deployment-guide",
+              "development/deploy-adk/authenticate-cli-to-server"
             ]
           },
           {
@@ -203,14 +203,14 @@
     "links": [
       {
         "label": "Discord",
-        "href": "https://discord.gg/NradeA6ZNF"
+        "href": "https://discord.gg/aJ92dNDzqB"
       }
     ]
   },
   "footer": {
     "socials": {
       "github": "https://github.com/kagenti/adk",
-      "discord": "https://discord.gg/AZFrp3UF5k",
+      "discord": "https://discord.gg/aJ92dNDzqB",
       "bluesky": "https://bsky.app/profile/beeaiagents.bsky.social"
     }
   },

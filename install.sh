@@ -5,8 +5,8 @@ set -eu
 # KAGENTI_ADK_VERSION = latest (default, latest stable version) | pre (latest version including prereleases) | <version> (specific version)
 
 # These get updated by `mise release`:
-LATEST_STABLE_KAGENTI_ADK_VERSION=0.8.0
-LATEST_KAGENTI_ADK_VERSION=0.8.1-rc4
+LATEST_STABLE_KAGENTI_ADK_VERSION=0.8.1
+LATEST_KAGENTI_ADK_VERSION=0.8.1
 
 case "${KAGENTI_ADK_VERSION:-latest}" in "latest") KAGENTI_ADK_VERSION=$LATEST_STABLE_KAGENTI_ADK_VERSION ;; "pre") KAGENTI_ADK_VERSION=$LATEST_KAGENTI_ADK_VERSION ;; esac
 

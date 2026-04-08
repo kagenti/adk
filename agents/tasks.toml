@@ -3,6 +3,16 @@
 ["agents:check"]
 depends = ["agents:*:check"]
 
+# adk-support-agent
+
+["agents:adk-support-agent:check"]
+depends = ["agents:adk-support-agent:check:*"]
+
+["agents:adk-support-agent:check:hadolint"]
+run = "hadolint Dockerfile"
+sources = ["Dockerfile"]
+dir = "{{config_root}}/agents/adk-support-agent"
+
 # canvas
 
 ["agents:canvas:check"]

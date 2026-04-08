@@ -12,35 +12,22 @@ updates:
   - package-ecosystem: npm
     directory: /
     schedule:
-      interval: weekly
+      interval: daily
+    open-pull-requests-limit: 0  # disables non-security updates
     groups:
-      npm-dependencies:
+      npm-security:
+        applies-to: security-updates
         patterns:
           - "*"
 
   - package-ecosystem: uv
-    directory: /apps/adk-server
+    directories:
+      - /apps/*
     schedule:
-      interval: weekly
+      interval: daily
+    open-pull-requests-limit: 0  # disables non-security updates
     groups:
-      adk-server-dependencies:
-        patterns:
-          - "*"
-
-  - package-ecosystem: uv
-    directory: /apps/adk-cli
-    schedule:
-      interval: weekly
-    groups:
-      adk-cli-dependencies:
-        patterns:
-          - "*"
-
-  - package-ecosystem: uv
-    directory: /apps/adk-py
-    schedule:
-      interval: weekly
-    groups:
-      adk-py-dependencies:
+      uv-security:
+        applies-to: security-updates
         patterns:
           - "*"

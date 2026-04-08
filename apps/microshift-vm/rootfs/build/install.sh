@@ -53,20 +53,9 @@ if [ -z "${CI:-}" ]; then
 	apt-get update -y -q
 	apt-get install -y -q --no-install-recommends \
 		git \
-		nftables \
 		mise \
+		nftables \
 		podman
-	echo 'eval "$(mise activate bash)"' >> /etc/bash.bashrc
-	ln -s /root/.claude/claude.json /root/.claude.json
-	mkdir -p /var/lib/cache/locki/debian-13/apt/{cache,state}
-	cat > /etc/apt/apt.conf.d/99local-cache <<-EOF
-		Dir::Cache "/var/lib/cache/locki/debian-13/apt/cache";
-		Dir::State "/var/lib/cache/locki/debian-13/apt/state";
-	EOF
-	mkdir -p /etc/claude-code
-	cat > /etc/claude-code/CLAUDE.md <<-'EOF'
-		**Sandbox VM environment**: Available package managers: `mise` (preferred) and `apt-get`. Start by running `mise install` to install project dependencies.
-	EOF
 fi
 
 passwd -l root

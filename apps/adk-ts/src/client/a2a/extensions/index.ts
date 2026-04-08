@@ -18,6 +18,5 @@ export * from './ui/canvas';
 export * from './ui/citation';
 export * from './ui/error';
 export * from './ui/form-request';
-export * from './ui/settings';
 export * from './ui/streaming';
 export * from './ui/trajectory';

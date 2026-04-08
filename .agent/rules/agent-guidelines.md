@@ -1,13 +1,86 @@
----
-trigger: always_on
-description: "Project-specific guidelines and instructions for the Kagenti ADK monorepo"
----
-
 # Kagenti ADK Project Guidelines
 
-This document contains critical instructions for working with the Kagenti ADK monorepo.
+Decision tables and commands for common tasks.
 
-## 1. Architecture Overview
+## 1. Project Structure & Task Runner
+
+- **Monorepo** with multiple projects (apps, agents, generic packages).
+- **Task runner**: [mise](https://mise.jdx.dev).
+- **Python**: Each project has its own `.venv`. Use `uv run` to execute commands (e.g. `uv run pytest`).
+
+## 2. Development Environment
+
+### Environment Tiers
+
+| Tier | What's Running | Use Case | How to Start |
+|------|---------------|----------|--------------|
+| 0 | Nothing | adk-py, unit tests, linting, formatting, helm | Run checks directly |
+| 1 | Lima VM + MicroShift + platform | Base infrastructure (prerequisite for 2+) | (automatic) |
+| 2 | Tier 1 + telepresence + local server on :18333 | Server dev, debugging, migrations | `mise run dev:ensure` |
+| 3 | Tier 2 + UI dev server on :3000 (hot-reload) | UI development | `mise run dev:ensure --with-ui` |
+
+`dev:ensure` is **idempotent** — safe to run anytime. Takes ~10 minutes on a cold start. Extra CLI args pass through to `adk-server:dev:start` → `adk:start` (e.g. `--set auth.enabled=true`). Multiple `--set` flags can be combined.
+
+If the user doesn't specify what they need, ask before running `dev:ensure`:
+- UI dev server? (`--with-ui`)
+- Auth enabled? (`--set auth.enabled=true`)
+- Static UI disabled? (`--set ui.enabled=false`)
+
+### Other Commands
+
+- `mise run dev:status` — show what's running.
+- `mise run dev:stop` — stop everything including the VM.
+- `curl localhost:18333/healthcheck` — quick server liveness check (direct local port). `adk-api.localtest.me:8080` also works — it routes through cluster networking via telepresence to the same server.
+
+### `.env` Configuration
+
+The server reads configuration from `apps/adk-server/.env`.
+
+- If `.env` doesn't exist, copy from `apps/adk-server/template.env`. Template defaults work for development.
+- **Running tests directly** (via `uv run pytest`, not via `mise run` tasks): add `DB_URL=postgresql+asyncpg://adk-user:password@localhost:5432/adk` — tests connect to Postgres directly, not through telepresence. The `mise run` test tasks set this automatically.
+- **Auth-enabled testing**: uncomment auth settings at the bottom of `.env` (copied from `template.env`).
+- **Never overwrite** a `.env` file without reading it first — it may contain custom values.
+
+### Safety Rules
+
+- **Never** run `adk:delete` or `adk-server:dev:delete` without asking the developer — these destroy the VM, which takes longer to recreate.
+
+## 3. Testing Strategies
+
+### adk-server
+
+Tests use pytest markers. **Always use a marker** — bare `uv run pytest` hits all tests including integration/e2e that fail without infrastructure.
+
+| Marker | mise task | Direct (from `apps/adk-server`) | Infrastructure |
+|---|---|---|---|
+| `unit` | `mise run adk-server:test:unit` | `uv run pytest -m unit` | None |
+| `integration` | `mise run adk-server:test:integration` | `uv run pytest -m integration` | Postgres (+ Redis for some). `dev:ensure` first. |
+| `e2e` | `mise run adk-server:test:e2e` | `uv run pytest -m e2e` | Full stack. `dev:ensure` first. |
+
+- `mise run adk-server:test` runs unit tests only. The integration and e2e mise tasks spin up their own infrastructure automatically.
+- When running tests directly (`uv run pytest`), prefer specific tests (`-k 'test_name'`), not the full integration/e2e suite.
+- Connection errors at fixture setup = infrastructure not running → `mise run dev:ensure`, don't chase code bugs.
+
+### adk-py
+
+Tests are independent of the dev stack. Run from `apps/adk-py`:
+
+- Direct: `uv run pytest` (all tests, current Python)
+- Via mise: `mise run adk-py:test-all` (defaults to Python 3.14, configurable with `--python <version>`)
+
+## 4. Database Migrations
+
+- **Stack**: SQLAlchemy Core + Alembic.
+- **Workflow**:
+  1. **Generate**: `mise run adk-server:migrations:generate` (must be in dev mode). **Never write migrations from scratch.**
+  2. **Modify**: specific migration files after generation if needed.
+  3. **Execute**: `mise run adk-server:migrations:run` (in dev mode).
+
+## 5. Helm Chart Development
+
+- **Templating**: Always use `--set encryptionKey="dummy"` when running `helm template` to avoid intentional failures.
+
+## 6. Architecture Overview
 
 The platform consists of multiple K8s microservices:
 
@@ -40,49 +113,6 @@ The platform consists of multiple K8s microservices:
 - **Agents**: Managed by Kubernetes (scale 0-1).
 - **Observability**: Otel-collector pushing traces to Arize Phoenix.
 - **Auth**: Supports multiple configurations, read `docs/development/deployment-guide.mdx` if necessary.
-
-## 2. Project Structure & Task Runner
-
-- **Monorepo**: This is a monorepo containing multiple projects (apps, agents, generic packages).
-- **Task Runner**: We use [mise](https://mise.jdx.dev) as the task runner.
-- **Python**: Each Python project has its own `.venv`. Always execute commands like `pytest` within the specific project directory using `uv run`.
-
-## 3. Development Environment ("Dev Mode")
-
-The "dev mode" stack is complex, utilizing **Lima** (VM), **Kubernetes**, and **Telepresence**.
-
-- **Startup**: It takes ~10 minutes to start (`mise run adk-server:dev:start`).
-- **Your Role**: **Do not attempt to start the stack yourself.** Ask the developer to ensure it is running if you need it.
-- **Verification**: Run `curl localhost:8333/healthcheck` to see if the stack is up.
-- **Database Access**: `adk-user:password@postgresql:5432/adk` (only available in dev mode).
-
-## 4. Testing Strategies
-
-### adk-server
-
-- **Dependencies**: Relies heavily on the full "dev mode" stack (infrastructure + server).
-- **E2E/Integration Tests**:
-  - **Never** run these via `mise`.
-  - Run specific tests using `pytest` (e.g., `uv run pytest -k 'test_name'`) only _after_ verifying the stack is running.
-  - Do not try to run the full suite; it takes too long.
-- **Unit/Dependency Checks**: You can use `uv run pytest` to check imports or specific logic that doesn't require the full stack.
-
-### adk-py
-
-- **Independence**: Tests are completely independent of the dev stack/infrastructure.
-- **Execution**: Run freely using `uv run pytest` from the `apps/adk-py` directory.
-
-## 5. Database Migrations
-
-- **Stack**: SQLAlchemy Core + Alembic.
-- **Workflow**:
-  1. **Generate**: `mise run adk-server:migrations:generate` (must be in dev mode). **Never write migrations from scratch.**
-  2. **Modify**: specific migration files after generation if needed.
-  3. **Execute**: `mise run adk-server:migrations:run` (in dev mode).
-
-## 6. Helm Chart Development
-
-- **Templating**: Always use `--set encryptionKey="dummy"` when running `helm template` to avoid intentional failures.
 
 ## 7. General Best Practices
 

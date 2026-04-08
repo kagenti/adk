@@ -70,3 +70,7 @@ force-exclude = true
 
 [tool.pyrefly]
 project-includes = ["**/*.py*", "**/*.ipynb"]
+
+[tool.uv]
+exclude-newer = "3 days"
+exclude-newer-package = { kagenti-adk = false }

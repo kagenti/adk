@@ -1,0 +1,121 @@
+---
+title: "Messages"
+description: "Learn how to structure, send, and receive messages - the foundation of agent communication."
+---
+
+In Kagenti ADK, you communicate with the client by yielding data. This concept consists of two parts:
+
+1. **Yielding data**: Sending data from your agent implementation to the client.
+2. **The Wrapper**: Using convenience objects like `AgentMessage` to simplify the underlying [A2A Protocol](https://github.com/a2aproject/A2A) requirements.
+
+## Choosing Your Message Type
+
+| Type | Best For... | Key Benefit |
+| :--- | :--- | :--- |
+| **Simple Data** (`str`, `dict`) | Simple text or JSON | Automatic conversion |
+| **AgentMessage** | Standard conversational responses | Auto-generates IDs and handles `TextPart` wrapping |
+| **AgentArtifact** | Returning files, documents, or assets | Automatically wraps content into A2A `Part` objects |
+| **A2A Components** | Advanced protocol-level control | Full control over `Role`, `UUID`, and `Part` lists |
+| **TaskStatus** | Tracking stateful progress | Allows you to signal specific states like `input_required` |
+
+## Simplified Yielding
+
+The Kagenti ADK allows you to yield simple Python types. These are automatically converted into textual A2A `Message` objects for ease of use.
+
+#### Plain Strings
+```python
+yield "Hello, world!"
+```
+
+#### Plain Dictionaries
+```python
+yield {"status": "processing", "progress": 50}
+```
+
+## Convenience Wrappers
+
+Wrappers provide a balance between ease of use and metadata support.
+
+#### AgentMessage
+The most common way to respond with text. It simplifies creating A2A `Message` objects and supports metadata.
+```python
+yield AgentMessage(text="This is my text", metadata={"foo": "bar"})
+```
+
+#### AgentArtifact
+
+Similar to `AgentMessage`, but specifically designed to simplify the creation and handling of Artifacts (tangible outputs).
+```python
+yield AgentArtifact(
+        parts=[
+            Part(text="Here is the documentation you requested."),
+            Part(
+                url="https://example.com/report.pdf",
+                media_type="application/pdf",
+                filename="Report.pdf"
+            )
+        ]
+    )
+```
+
+
+## Direct A2A Components
+
+For advanced use cases, you can yield direct [A2A protocol components](https://a2a-protocol.org/latest/topics/key-concepts/#core-actors-in-a2a-interactions).
+
+<Warning>
+While yielding plain A2A components is supported, the Kagenti ADK is optimized for convenience wrappers. Using wrappers ensures the best UX in the GUI.
+</Warning>
+
+#### Message
+The basic unit representing a single turn in a conversation.
+
+```python
+import uuid
+from a2a.types import Message, Part, Role
+
+# @server.agent(...)
+async def example_agent():
+    yield Message(role=Role.ROLE_AGENT, message_id=str(uuid.uuid4()), parts=[Part(text="Hello from the agent!")])
+```
+
+#### Part
+The fundamental unit of content. A `Message` consists of multiple `Part` objects such as `TextPart`, `FilePart`, or `DataPart`.
+
+```python
+from a2a.types import Part
+
+# @server.agent(...)
+async def example_agent():
+    yield Part(text="Hello from the agent!")
+```
+
+#### Artifact
+Tangible outputs produced by the agent, such as documents or other generated content.
+
+```python
+import uuid
+from a2a.types import Artifact, Part
+
+# @server.agent(...)
+async def example_agent():
+    yield Artifact(
+        artifact_id=str(uuid.uuid4()),
+        parts=[Part(url="https://www.ibm.com/us-en", media_type="text/html", filename="IBM Website")],
+    )
+```
+
+#### TaskStatus
+A stateful unit of work used to annotate a transaction spanning multiple messages (e.g., tracking progress or requiring input).
+
+```python
+import uuid
+from a2a.types import TaskStatus, Message, TaskState, Part, Role
+
+# @server.agent(...)
+async def example_agent():
+    yield TaskStatus(
+        message=Message(message_id=str(uuid.uuid4()), role=Role.ROLE_AGENT, parts=[Part(text="Please provide some input.")]),
+        state=TaskState.TASK_STATE_INPUT_REQUIRED,
+    )
+```

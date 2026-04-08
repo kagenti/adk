@@ -10,7 +10,6 @@ import { formExtension } from '../a2a/extensions/services/form';
 import { llmExtension } from '../a2a/extensions/services/llm';
 import { mcpExtension } from '../a2a/extensions/services/mcp';
 import { platformApiExtension } from '../a2a/extensions/services/platform-api';
-import { settingsExtension } from '../a2a/extensions/ui/settings';
 import type { AgentCapabilities } from '../a2a/protocol/types';
 import { extractServiceExtensionDemands } from './extensions/extract';
 import { fulfillServiceExtensionDemand } from './extensions/fulfill';
@@ -20,7 +19,6 @@ const mcpExtensionExtractor = extractServiceExtensionDemands(mcpExtension);
 const llmExtensionExtractor = extractServiceExtensionDemands(llmExtension);
 const embeddingExtensionExtractor = extractServiceExtensionDemands(embeddingExtension);
 const oauthExtensionExtractor = extractServiceExtensionDemands(oauthExtension);
-const settingsExtensionExtractor = extractServiceExtensionDemands(settingsExtension);
 const secretExtensionExtractor = extractServiceExtensionDemands(secretsExtension);
 const formExtensionExtractor = extractServiceExtensionDemands(formExtension);
 
@@ -28,7 +26,6 @@ const fulfillMcpDemand = fulfillServiceExtensionDemand(mcpExtension);
 const fulfillLlmDemand = fulfillServiceExtensionDemand(llmExtension);
 const fulfillEmbeddingDemand = fulfillServiceExtensionDemand(embeddingExtension);
 const fulfillOAuthDemand = fulfillServiceExtensionDemand(oauthExtension);
-const fulfillSettingsDemand = fulfillServiceExtensionDemand(settingsExtension);
 const fulfillSecretDemand = fulfillServiceExtensionDemand(secretsExtension);
 const fulfillFormDemand = fulfillServiceExtensionDemand(formExtension);
 
@@ -39,7 +36,6 @@ export const handleAgentCard = (agentCard: { capabilities: AgentCapabilities }) 
   const embeddingDemands = embeddingExtensionExtractor(extensions);
   const mcpDemands = mcpExtensionExtractor(extensions);
   const oauthDemands = oauthExtensionExtractor(extensions);
-  const settingsDemands = settingsExtensionExtractor(extensions);
   const secretDemands = secretExtensionExtractor(extensions);
   const formDemands = formExtensionExtractor(extensions);
 
@@ -64,10 +60,6 @@ export const handleAgentCard = (agentCard: { capabilities: AgentCapabilities }) 
 
     if (oauthDemands && fulfillments.oauth) {
       fulfilledMetadata = fulfillOAuthDemand(fulfilledMetadata, await fulfillments.oauth(oauthDemands));
-    }
-
-    if (settingsDemands && fulfillments.settings) {
-      fulfilledMetadata = fulfillSettingsDemand(fulfilledMetadata, await fulfillments.settings(settingsDemands));
     }
 
     if (secretDemands && fulfillments.secrets) {
@@ -99,7 +91,6 @@ export const handleAgentCard = (agentCard: { capabilities: AgentCapabilities }) 
       embeddingDemands,
       mcpDemands,
       oauthDemands,
-      settingsDemands,
       secretDemands,
       formDemands,
     },

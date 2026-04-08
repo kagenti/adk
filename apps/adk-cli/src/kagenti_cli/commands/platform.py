@@ -240,6 +240,7 @@ async def start_cmd(
             "--set",
             help="Set Helm chart values. Prefix with chart name: --set kagenti:key=val, --set kagenti-deps:key=val. Unprefixed applies to kagenti-adk.",
             default_factory=list,
+            show_default=False,
         ),
     ],
     image_pull_mode: typing.Annotated[
@@ -545,6 +546,7 @@ async def start_cmd(
                                 "serverClientSecret": "adk-server-secret",
                             },
                         },
+                        "exampleAgent": {"enabled": True},
                         "features": {"uiLocalSetup": True},
                         "providerBuilds": {"enabled": True},
                         "disableProviderDownscaling": True,

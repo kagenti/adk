@@ -1,7 +1,3 @@
----
-trigger: always_on
----
-
 # Kagenti ADK UI Styling Guidelines
 
 ## SCSS Modules - MANDATORY

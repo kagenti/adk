@@ -22,7 +22,7 @@ from InquirerPy import inquirer
 from InquirerPy.base.control import Choice
 
 from kagenti_cli.async_typer import AsyncTyper, console
-from kagenti_cli.configuration import Configuration
+from kagenti_cli.configuration import Configuration, _is_connect_error
 
 app = AsyncTyper()
 
@@ -124,6 +124,14 @@ async def server_login(
             console.success(f"Logged in to [cyan]{server}[/cyan] (local dev).")
             return
         except Exception as e:
+            if _is_connect_error(e):
+                console.error(f"Cannot connect to server: {server}")
+                console.hint(
+                    "Start the Kagenti ADK platform using: [green]kagenti-adk platform start[/green]. "
+                    "If that does not help, run [green]kagenti-adk platform delete[/green] to clean up, "
+                    "then [green]kagenti-adk platform start[/green] again."
+                )
+                sys.exit(1)
             console.warning(f"Auto-login failed: {e!s}. Falling back to interactive login.")
 
     check_token = True
@@ -210,8 +218,19 @@ async def server_login(
                     console.success(f"Logged in to [cyan]{server}[/cyan].")
                     return
             except Exception as e:
+                if _is_connect_error(e):
+                    console.error(f"Cannot connect to server: {server}")
+                    console.hint(
+                        "Start the Kagenti ADK platform using: [green]kagenti-adk platform start[/green]. "
+                        "If that does not help, run [green]kagenti-adk platform delete[/green] to clean up, "
+                        "then [green]kagenti-adk platform start[/green] again."
+                    )
+                    # Restore previous state before exiting
+                    config.auth_manager.active_server = previous_server
+                    config.auth_manager.active_auth_server = previous_auth_server
+                    sys.exit(1)
                 console.warning(f"Failed to load authentication token: {e!s}")
-                # Token refresh failed due to invalid/expired refresh token or some other error (e.g. network issue) - in any case, we try to log in again
+                # Token refresh failed due to invalid/expired refresh token or some other error - try to log in again
                 log_in_message = "Please try to log in again."
                 # Restore previous state until login completes
                 config.auth_manager.active_server = previous_server

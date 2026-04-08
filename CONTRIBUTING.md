@@ -7,6 +7,23 @@ our success.
 
 ## Development Setup
 
+### Agentic Development
+
+For a seamless development experience where an AI coding agent (Claude Code,
+Cursor, etc.) manages the full dev lifecycle — running tests, starting/stopping
+the platform, executing migrations — you'll want to grant it broad permissions
+over Mise tasks. Before doing so, consider running the agent inside a sandbox.
+
+This repo is configured for [locki](https://github.com/JanPokorny/locki) — it
+uses the project's own MicroShift VM image (via `locki.toml`). To start a
+sandboxed Claude Code session:
+
+```sh
+locki claude my-sandbox
+```
+
+Install locki with `mise use -g pipx:locki` or `uv tool install locki`.
+
 ### Installation
 
 This project uses [Mise-en-place](https://mise.jdx.dev/) as a manager of tool versions (`python`, `uv`, `nodejs`, `pnpm`

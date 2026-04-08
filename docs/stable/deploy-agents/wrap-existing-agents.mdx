@@ -92,7 +92,7 @@ Your agent will automatically register with Kagenti ADK!
 <Tip>
 **Enable auto-reload during development:** Add `watchfiles` to automatically restart your server when code changes:
 ```bash
-uv run watchfiles adk_agents.agent.run
+uv run watchfiles kagenti_adk_agents.agent.run
 ```
 </Tip>
 
@@ -120,13 +120,13 @@ Access previous messages in the conversation:
 @server.agent()
 async def contextual_agent(input: Message, context: RunContext):
     # Get conversation history
-    previous_messages = context.history
-    
+    previous_messages = [msg async for msg in context.load_history()]
+
     # Your agent can use this context
     result = await my_agent_with_context(
         current_message=get_message_text(input),
         history=previous_messages
     )
-    
+
     yield AgentMessage(text=result)
 ```

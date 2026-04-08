@@ -23,6 +23,7 @@ $ kagenti-adk [OPTIONS] COMMAND [ARGS]...
 **Options**:
 
 * `--help`: Show this message and exit.
+* `--version`: Show CLI version and exit.
 * `--install-completion`: Install completion for the current shell.
 * `--show-completion`: Show completion for the current shell, to copy it or customize the installation.
 
@@ -30,21 +31,20 @@ $ kagenti-adk [OPTIONS] COMMAND [ARGS]...
 
 * `version`: Print version of the Kagenti ADK CLI.
 * `ui`: Launch the graphical interface.
+* `admin`: Launch the admin console.
 * `model`: Manage model providers.
 * `agent`: Manage agents.
 * `connector`: Manage connectors to external services.
 * `platform`: Manage Kagenti ADK platform.
-* `build`: Build an agent image locally and push to platform registry.
 * `server`: Manage Kagenti ADK servers and...
 * `self`: Manage Kagenti ADK installation.
-* `add`: Add a docker image or GitHub repository.
-* `update`: Upgrade agent to a newer docker image or...
+* `build`: Build an agent image locally and push it...
+* `add`: Add an agent by container image or network...
+* `update`: Update an agent&#x27;s location.
 * `remove | uninstall | rm | delete`: Remove agent.
-* `logs`: Stream agent provider logs.
 * `run`: Run an agent.
 * `list`: List agents.
 * `info`: Show agent details.
-* `env`
 * `feedback`: Manage user feedback for your agents
 
 ## `kagenti-adk version`
@@ -70,6 +70,20 @@ Launch the graphical interface.
 
 ```console
 $ kagenti-adk ui [OPTIONS]
+```
+
+**Options**:
+
+* `--help`: Show this message and exit.
+
+## `kagenti-adk admin`
+
+Launch the admin console.
+
+**Usage**:
+
+```console
+$ kagenti-adk admin [OPTIONS]
 ```
 
 **Options**:
@@ -312,31 +326,17 @@ $ kagenti-adk agent [OPTIONS] COMMAND [ARGS]...
 
 **Commands**:
 
-* `add`: Add a docker image or GitHub repository.
-* `update`: Upgrade agent to a newer docker image or...
+* `add`: Add an agent by container image or network...
+* `update`: Update an agent&#x27;s location.
 * `remove | uninstall | rm | delete`: Remove agent.
-* `logs`: Stream agent provider logs.
 * `run`: Run an agent.
 * `list`: List agents.
 * `info`: Show agent details.
-* `env`
 * `feedback`: Manage user feedback for your agents
 
 ### `kagenti-adk agent add`
 
-Add a docker image or GitHub repository. [Admin only]
-
-This command supports a variety of GitHub URL formats for deploying agents:
-
-- **Basic URL**: `https://github.com/myorg/myrepo`
-- **Git Protocol URL**: `git+https://github.com/myorg/myrepo`
-- **URL with .git suffix**: `https://github.com/myorg/myrepo.git`
-- **URL with Version Tag**: `https://github.com/myorg/myrepo@v1.0.0`
-- **URL with Branch Name**: `https://github.com/myorg/myrepo@my-branch`
-- **URL with Subfolder Path**: `https://github.com/myorg/myrepo#path=/path/to/agent`
-- **Combined Formats**: `https://github.com/myorg/myrepo.git@v1.0.0#path=/path/to/agent`
-- **Enterprise GitHub**: `https://github.mycompany.com/myorg/myrepo`
-- **With a custom Dockerfile location**: `kagenti-adk add --dockerfile /my-agent/path/to/Dockerfile &quot;https://github.com/my-org/my-awesome-agents@main#path=/my-agent&quot;`
+Add an agent by container image or network URL. [Admin only]
 
 **Usage**:
 
@@ -346,18 +346,21 @@ $ kagenti-adk agent add [OPTIONS] [LOCATION]
 
 **Arguments**:
 
-* `[LOCATION]`: Agent location (public docker image or github url)
+* `[LOCATION]`: Agent image or network URL
 
 **Options**:
 
-* `--dockerfile TEXT`: Use custom dockerfile path
-* `-v, --verbose`: Show verbose output
+* `-n, --name TEXT`: Agent name (default: derived from image)
+* `--namespace TEXT`: Target Kubernetes namespace  [default: team1]
+* `--port INTEGER`: Agent service port  [default: 8080]
+* `-e, --env TEXT`: Environment variable in KEY=VALUE format (repeatable)
+* `--env-file TEXT`: Path to env file (KEY=VALUE per line)
 * `-y, --yes`: Skip confirmation prompts.
 * `--help`: Show this message and exit.
 
 ### `kagenti-adk agent update`
 
-Upgrade agent to a newer docker image or build from GitHub repository. [Admin only]
+Update an agent&#x27;s location. [Admin only]
 
 **Usage**:
 
@@ -368,12 +371,10 @@ $ kagenti-adk agent update [OPTIONS] [SEARCH_PATH] [LOCATION]
 **Arguments**:
 
 * `[SEARCH_PATH]`: Short ID, agent name or part of the provider location of agent to replace
-* `[LOCATION]`: Agent location (public docker image or github url)
+* `[LOCATION]`: New agent location (network URL)
 
 **Options**:
 
-* `--dockerfile TEXT`: Use custom dockerfile path
-* `-v, --verbose`: Show verbose output
 * `-y, --yes`: Skip confirmation prompts.
 * `--help`: Show this message and exit.
 
@@ -395,24 +396,6 @@ $ kagenti-adk agent remove | uninstall | rm | delete [OPTIONS] [SEARCH_PATH]
 
 * `-y, --yes`: Skip confirmation prompts.
 * `-a, --all`: Remove all agents without selection.
-* `--help`: Show this message and exit.
-
-### `kagenti-adk agent logs`
-
-Stream agent provider logs. [Admin only]
-
-**Usage**:
-
-```console
-$ kagenti-adk agent logs [OPTIONS] SEARCH_PATH
-```
-
-**Arguments**:
-
-* `SEARCH_PATH`: Short ID, agent name or part of the provider location  [required]
-
-**Options**:
-
 * `--help`: Show this message and exit.
 
 ### `kagenti-adk agent run`
@@ -465,82 +448,6 @@ $ kagenti-adk agent info [OPTIONS] SEARCH_PATH
 
 **Options**:
 
-* `--help`: Show this message and exit.
-
-### `kagenti-adk agent env`
-
-**Usage**:
-
-```console
-$ kagenti-adk agent env [OPTIONS] COMMAND [ARGS]...
-```
-
-**Options**:
-
-* `--help`: Show this message and exit.
-
-**Commands**:
-
-* `add`: Store environment variables.
-* `list`: List stored environment variables.
-* `remove`: Remove environment variable(s).
-
-#### `kagenti-adk agent env add`
-
-Store environment variables. [Admin only]
-
-**Usage**:
-
-```console
-$ kagenti-adk agent env add [OPTIONS] SEARCH_PATH ENV...
-```
-
-**Arguments**:
-
-* `SEARCH_PATH`: Short ID, agent name or part of the provider location  [required]
-* `ENV...`: Environment variables to pass to agent  [required]
-
-**Options**:
-
-* `-y, --yes`: Skip confirmation prompts.
-* `--help`: Show this message and exit.
-
-#### `kagenti-adk agent env list`
-
-List stored environment variables. [Admin only]
-
-**Usage**:
-
-```console
-$ kagenti-adk agent env list [OPTIONS] SEARCH_PATH
-```
-
-**Arguments**:
-
-* `SEARCH_PATH`: Short ID, agent name or part of the provider location  [required]
-
-**Options**:
-
-* `--help`: Show this message and exit.
-
-#### `kagenti-adk agent env remove`
-
-Remove environment variable(s). [Admin only]
-
-**Usage**:
-
-```console
-$ kagenti-adk agent env remove [OPTIONS] SEARCH_PATH ENV...
-```
-
-**Arguments**:
-
-* `SEARCH_PATH`: Short ID, agent name or part of the provider location  [required]
-* `ENV...`: Environment variable(s) to remove  [required]
-
-**Options**:
-
-* `-y, --yes`: Skip confirmation prompts.
 * `--help`: Show this message and exit.
 
 ### `kagenti-adk agent feedback`
@@ -750,7 +657,7 @@ $ kagenti-adk platform [OPTIONS] COMMAND [ARGS]...
 * `start`: Start Kagenti ADK platform.
 * `stop`: Stop Kagenti ADK platform.
 * `delete`: Delete Kagenti ADK platform.
-* `import`: Import a local docker image into the Agent...
+* `import`: Import a local docker image into the...
 * `exec`: For debugging -- execute a command inside...
 
 ### `kagenti-adk platform start`
@@ -765,12 +672,12 @@ $ kagenti-adk platform start [OPTIONS]
 
 **Options**:
 
-* `--set TEXT`: Set Helm chart values using &lt;key&gt;=&lt;value&gt; syntax  [default: &lt;class &#x27;list&#x27;&gt;]
+* `--set TEXT`: Set Helm chart values. Prefix with chart name: --set kagenti:key=val, --set kagenti-deps:key=val. Unprefixed applies to kagenti-adk.  [default: &lt;class &#x27;list&#x27;&gt;]
 * `--image-pull-mode [guest|host|hybrid|skip]`: guest = pull all images inside VM 
 <span style="color: #000000; text-decoration-color: #000000">host = pull unavailable images on host, then import all</span>
 <span style="color: #000000; text-decoration-color: #000000">hybrid = import available images from host, pull the rest in VM</span>
 <span style="color: #000000; text-decoration-color: #000000">skip = skip explicit pull step (Kubernetes will attempt to pull missing images)  [default: guest]</span>
-* `-f PATH`: Set Helm chart values using yaml values file
+* `-f PATH`: YAML values file with chart-scoped sections: kagenti-adk:, kagenti:, kagenti-deps:
 * `--lima-image TEXT`: Local path or URL to Lima image (.qcow2)
 * `--wsl-image TEXT`: Local path or URL to WSL distro image (.wsl)
 * `-v, --verbose`: Show verbose output
@@ -823,7 +730,6 @@ $ kagenti-adk platform import [OPTIONS] TAG
 **Options**:
 
 * `-v, --verbose`: Show verbose output
-* `--mode [daemon|registry]`: [default: daemon]
 * `--help`: Show this message and exit.
 
 ### `kagenti-adk platform exec`
@@ -842,27 +748,6 @@ $ kagenti-adk platform exec [OPTIONS] [COMMAND]...
 
 **Options**:
 
-* `-v, --verbose`: Show verbose output
-* `--help`: Show this message and exit.
-
-## `kagenti-adk build`
-
-Build an agent image locally and push it to the platform registry. [Local only]
-
-**Usage**:
-
-```console
-$ kagenti-adk build [OPTIONS] [CONTEXT]
-```
-
-**Arguments**:
-
-* `[CONTEXT]`: Docker build context (path or URL)  [default: .]
-
-**Options**:
-
-* `-f, --dockerfile TEXT`: Dockerfile path
-* `-t, --tag TEXT`: Image tag (default: auto-generated)
 * `-v, --verbose`: Show verbose output
 * `--help`: Show this message and exit.
 
@@ -1027,21 +912,30 @@ $ kagenti-adk self uninstall [OPTIONS]
 * `-v, --verbose`: Show verbose output
 * `--help`: Show this message and exit.
 
+## `kagenti-adk build`
+
+Build an agent image locally and push it to the platform registry. [Local only]
+
+**Usage**:
+
+```console
+$ kagenti-adk build [OPTIONS] [CONTEXT]
+```
+
+**Arguments**:
+
+* `[CONTEXT]`: Docker build context (path or URL)  [default: .]
+
+**Options**:
+
+* `-f, --dockerfile TEXT`: Dockerfile path
+* `-t, --tag TEXT`: Image tag (default: auto-generated)
+* `-v, --verbose`: Show verbose output
+* `--help`: Show this message and exit.
+
 ## `kagenti-adk add`
 
-Add a docker image or GitHub repository. [Admin only]
-
-This command supports a variety of GitHub URL formats for deploying agents:
-
-- **Basic URL**: `https://github.com/myorg/myrepo`
-- **Git Protocol URL**: `git+https://github.com/myorg/myrepo`
-- **URL with .git suffix**: `https://github.com/myorg/myrepo.git`
-- **URL with Version Tag**: `https://github.com/myorg/myrepo@v1.0.0`
-- **URL with Branch Name**: `https://github.com/myorg/myrepo@my-branch`
-- **URL with Subfolder Path**: `https://github.com/myorg/myrepo#path=/path/to/agent`
-- **Combined Formats**: `https://github.com/myorg/myrepo.git@v1.0.0#path=/path/to/agent`
-- **Enterprise GitHub**: `https://github.mycompany.com/myorg/myrepo`
-- **With a custom Dockerfile location**: `kagenti-adk add --dockerfile /my-agent/path/to/Dockerfile &quot;https://github.com/my-org/my-awesome-agents@main#path=/my-agent&quot;`
+Add an agent by container image or network URL. [Admin only]
 
 **Usage**:
 
@@ -1051,18 +945,21 @@ $ kagenti-adk add [OPTIONS] [LOCATION]
 
 **Arguments**:
 
-* `[LOCATION]`: Agent location (public docker image or github url)
+* `[LOCATION]`: Agent image or network URL
 
 **Options**:
 
-* `--dockerfile TEXT`: Use custom dockerfile path
-* `-v, --verbose`: Show verbose output
+* `-n, --name TEXT`: Agent name (default: derived from image)
+* `--namespace TEXT`: Target Kubernetes namespace  [default: team1]
+* `--port INTEGER`: Agent service port  [default: 8080]
+* `-e, --env TEXT`: Environment variable in KEY=VALUE format (repeatable)
+* `--env-file TEXT`: Path to env file (KEY=VALUE per line)
 * `-y, --yes`: Skip confirmation prompts.
 * `--help`: Show this message and exit.
 
 ## `kagenti-adk update`
 
-Upgrade agent to a newer docker image or build from GitHub repository. [Admin only]
+Update an agent&#x27;s location. [Admin only]
 
 **Usage**:
 
@@ -1073,12 +970,10 @@ $ kagenti-adk update [OPTIONS] [SEARCH_PATH] [LOCATION]
 **Arguments**:
 
 * `[SEARCH_PATH]`: Short ID, agent name or part of the provider location of agent to replace
-* `[LOCATION]`: Agent location (public docker image or github url)
+* `[LOCATION]`: New agent location (network URL)
 
 **Options**:
 
-* `--dockerfile TEXT`: Use custom dockerfile path
-* `-v, --verbose`: Show verbose output
 * `-y, --yes`: Skip confirmation prompts.
 * `--help`: Show this message and exit.
 
@@ -1100,24 +995,6 @@ $ kagenti-adk remove | uninstall | rm | delete [OPTIONS] [SEARCH_PATH]
 
 * `-y, --yes`: Skip confirmation prompts.
 * `-a, --all`: Remove all agents without selection.
-* `--help`: Show this message and exit.
-
-## `kagenti-adk logs`
-
-Stream agent provider logs. [Admin only]
-
-**Usage**:
-
-```console
-$ kagenti-adk logs [OPTIONS] SEARCH_PATH
-```
-
-**Arguments**:
-
-* `SEARCH_PATH`: Short ID, agent name or part of the provider location  [required]
-
-**Options**:
-
 * `--help`: Show this message and exit.
 
 ## `kagenti-adk run`
@@ -1170,82 +1047,6 @@ $ kagenti-adk info [OPTIONS] SEARCH_PATH
 
 **Options**:
 
-* `--help`: Show this message and exit.
-
-## `kagenti-adk env`
-
-**Usage**:
-
-```console
-$ kagenti-adk env [OPTIONS] COMMAND [ARGS]...
-```
-
-**Options**:
-
-* `--help`: Show this message and exit.
-
-**Commands**:
-
-* `add`: Store environment variables.
-* `list`: List stored environment variables.
-* `remove`: Remove environment variable(s).
-
-### `kagenti-adk env add`
-
-Store environment variables. [Admin only]
-
-**Usage**:
-
-```console
-$ kagenti-adk env add [OPTIONS] SEARCH_PATH ENV...
-```
-
-**Arguments**:
-
-* `SEARCH_PATH`: Short ID, agent name or part of the provider location  [required]
-* `ENV...`: Environment variables to pass to agent  [required]
-
-**Options**:
-
-* `-y, --yes`: Skip confirmation prompts.
-* `--help`: Show this message and exit.
-
-### `kagenti-adk env list`
-
-List stored environment variables. [Admin only]
-
-**Usage**:
-
-```console
-$ kagenti-adk env list [OPTIONS] SEARCH_PATH
-```
-
-**Arguments**:
-
-* `SEARCH_PATH`: Short ID, agent name or part of the provider location  [required]
-
-**Options**:
-
-* `--help`: Show this message and exit.
-
-### `kagenti-adk env remove`
-
-Remove environment variable(s). [Admin only]
-
-**Usage**:
-
-```console
-$ kagenti-adk env remove [OPTIONS] SEARCH_PATH ENV...
-```
-
-**Arguments**:
-
-* `SEARCH_PATH`: Short ID, agent name or part of the provider location  [required]
-* `ENV...`: Environment variable(s) to remove  [required]
-
-**Options**:
-
-* `-y, --yes`: Skip confirmation prompts.
 * `--help`: Show this message and exit.
 
 ## `kagenti-adk feedback`

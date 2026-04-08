@@ -14,6 +14,7 @@ Maintainers are listed in alphabetical order by last name.
 | Milan Gallas | [GALLLASMILAN](https://github.com/GALLLASMILAN) |
 | Matous Havlena | [matoushavlena](https://github.com/matoushavlena) |
 | Lukáš Janeček | [xjacka](https://github.com/xjacka) |
+| Jan Jeliga | [jjeliga](https://github.com/jjeliga) |
 | Radek Ježek | [jezekra1](https://github.com/jezekra1) |
 | Petr Kadlec | [kapetr](https://github.com/kapetr) |
 | Aleš Kalfas | [aleskalfas](https://github.com/aleskalfas) |

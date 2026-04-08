@@ -10,12 +10,9 @@ import type {
   FormFulfillments,
   Fulfillments,
   MCPFulfillments,
-  SettingsDemands,
-  SettingsFormValues,
 } from '@kagenti/adk';
 import { ConnectorState, MCPTransportType } from '@kagenti/adk';
 
-import { transformSettingsFormValuesToLegacySettingsValues } from '#modules/runs/settings/utils.ts';
 import { BASE_URL } from '#utils/constants.ts';
 
 interface BuildFulfillmentsParams {
@@ -23,9 +20,6 @@ interface BuildFulfillmentsParams {
   selectedLLMProviders: Record<string, string>;
   selectedEmbeddingProviders: Record<string, string>;
   providedSecrets: Record<string, string>;
-  legacySettingsDemands: SettingsDemands | null;
-  settingsFormDemanded: boolean;
-  selectedSettings: SettingsFormValues;
   formFulfillments: FormFulfillments;
   oauthRedirectUri: string | null;
   connectors: Connector[];
@@ -35,9 +29,6 @@ export const buildFulfillments = ({
   contextToken,
   selectedLLMProviders,
   selectedEmbeddingProviders,
-  selectedSettings,
-  legacySettingsDemands,
-  settingsFormDemanded,
   providedSecrets,
   formFulfillments,
   oauthRedirectUri,
@@ -163,13 +154,6 @@ export const buildFulfillments = ({
       return oauthRedirectUri;
     },
   };
-
-  if (legacySettingsDemands && !settingsFormDemanded) {
-    // @deprecated - use form extension with "settings_form" demand instead
-    fulfillments.settings = async () => ({
-      values: transformSettingsFormValuesToLegacySettingsValues(selectedSettings),
-    });
-  }
 
   return fulfillments;
 };

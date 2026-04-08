@@ -1,0 +1,128 @@
+---
+title: 'Deploy Your Agent'
+description: 'Get your agent running on Kagenti ADK'
+---
+
+Kagenti ADK works with any A2A-compatible agent. The fastest way to see it in action is to deploy the starter template.
+
+## Try It Now
+
+Deploy an example agent with a single command:
+
+```bash
+kagenti-adk add https://github.com/kagenti/adk-starter
+```
+
+Then test it:
+
+```bash
+kagenti-adk run example_agent "Alice"
+```
+
+You should see "Ciao Alice!". Open the web UI with `kagenti-adk ui` to interact with it at `http://127.0.0.1:8333`.
+
+Now deploy your own agent using any of the methods below.
+
+## From a Docker Image
+
+If you have an A2A agent packaged as a Docker image:
+
+```bash
+kagenti-adk add <docker-image-url>
+```
+
+For example:
+
+```bash
+kagenti-adk add ghcr.io/my-org/my-agent:latest
+```
+
+Your Docker image must:
+
+1. **Expose a valid agent card** at `/.well-known/agent-card.json`
+2. **Start without required environment variables** — Kagenti ADK temporarily runs the container to extract metadata, then terminates it. Your image must start with sensible defaults.
+
+When you run `kagenti-adk add`, Kagenti ADK pulls your image, probes the agent card for metadata, and makes the agent available in the UI. It manages the container lifecycle automatically from there.
+
+## From a Running Agent
+
+If your A2A agent is already running somewhere:
+
+```bash
+kagenti-adk add <agent-url>
+```
+
+For example:
+
+```bash
+kagenti-adk add http://localhost:8080
+```
+
+Your agent must expose a valid agent card at `/.well-known/agent-card.json`. Kagenti ADK fetches the metadata and proxies requests to your agent. You remain responsible for the agent's lifecycle.
+
+## From Source Code (GitHub)
+
+If you have agent source code in a GitHub repository with a `Dockerfile`:
+
+```bash
+kagenti-adk add https://github.com/myorg/my-agent
+```
+
+This automatically builds the Docker image, copies it into the Kagenti ADK VM, and registers the agent.
+
+<Note>
+**Why "copy into VM"?** Kagenti ADK runs in an isolated VM (Lima on Mac/Linux, WSL on Windows). Even though Docker Desktop builds your image, Kagenti ADK needs it copied into its VM to run it. The `add` command handles this automatically.
+</Note>
+
+### URL Formats
+
+The `kagenti-adk add` command supports various URL formats:
+
+- **Basic**: `https://github.com/myorg/myrepo`
+- **With branch or tag**: `https://github.com/myorg/myrepo@v1.0.0`
+- **With subfolder**: `https://github.com/myorg/myrepo#path=/path/to/agent`
+- **Combined**: `https://github.com/myorg/myrepo.git@v1.0.0#path=/path/to/agent`
+- **Enterprise GitHub**: `https://github.mycompany.com/myorg/myrepo`
+
+### Using the Starter Template
+
+Want to build your own agent from scratch? Use the [adk-starter template](https://github.com/kagenti/adk-starter) which includes a production-ready Dockerfile, GitHub Actions, and deployment configuration:
+
+```bash
+git clone https://github.com/kagenti/adk-starter my-agent
+cd my-agent
+# Replace the example agent with your code
+kagenti-adk add https://github.com/myorg/my-agent
+```
+
+## Verify and Test
+
+Check that your agent is registered:
+
+```bash
+kagenti-adk list
+```
+
+Test via CLI:
+
+```bash
+kagenti-adk run my-agent "Hello!"
+```
+
+Or open the web UI:
+
+```bash
+kagenti-adk ui
+```
+
+### Two-Step Build
+
+If you need more control over the build process:
+
+```bash
+# Step 1: Build and copy to Kagenti ADK VM
+kagenti-adk build https://github.com/myorg/myrepo
+
+# Step 2: Register the agent
+kagenti-adk add adk.local/my-agent-abc123:latest
+```

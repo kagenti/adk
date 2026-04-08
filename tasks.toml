@@ -231,6 +231,154 @@ export PS1="(${usage_vm_name?}) \\${__OLD_PS1}"
 EOF
 """
 
+# dev environment tasks
+
+["dev:status"]
+description = "Show development environment status"
+dir = "{{config_root}}"
+run = """
+#!/bin/bash
+set -uo pipefail
+
+# Get dev shell env (sets KUBECONFIG, LIMA_HOME for kubectl/telepresence)
+if eval "$({{ mise_bin }} run adk-server:dev:shell 2>/dev/null)" 2>/dev/null && \
+   kubectl get nodes --no-headers --request-timeout=5s >/dev/null 2>&1; then
+  echo "cluster:         running"
+else
+  echo "cluster:         not available (run 'mise run dev:ensure' to start)"
+  echo "telepresence:    n/a"
+  echo "server:          n/a"
+  echo "port-forward:    n/a"
+  echo "ui-dev-server:   n/a"
+  exit 0
+fi
+
+# Telepresence status
+if telepresence list --replacements 2>/dev/null | grep -q adk-server; then
+  echo "telepresence:    connected (replacing adk-server)"
+else
+  echo "telepresence:    not connected"
+fi
+
+# Server healthcheck
+if curl -sf localhost:18333/healthcheck >/dev/null 2>&1; then
+  echo "server:          healthy (localhost:18333)"
+else
+  echo "server:          not responding"
+fi
+
+# Port forwards
+PG_STATUS="not active"
+REDIS_STATUS="not active"
+if lsof -i :5432 -sTCP:LISTEN >/dev/null 2>&1; then PG_STATUS="ok"; fi
+if lsof -i :6379 -sTCP:LISTEN >/dev/null 2>&1; then REDIS_STATUS="ok"; fi
+echo "port-forward:    postgres:5432 $PG_STATUS  redis:6379 $REDIS_STATUS"
+
+# UI dev server
+if curl -sf localhost:3000 >/dev/null 2>&1; then
+  echo "ui-dev-server:   running (localhost:3000)"
+else
+  echo "ui-dev-server:   not running"
+fi
+"""
+
+["dev:ensure"]
+description = """Ensure development environment is running (idempotent).
+Starts platform with static UI (same as adk:start default).
+Use --with-ui to also start a local dev server on :3000 with hot-reload for UI development."""
+dir = "{{config_root}}"
+raw = true
+usage = '''
+flag "--with-ui"
+arg "[cli_args]..."
+'''
+run = """
+#!/bin/bash
+set -euo pipefail
+
+LOG_DIR="${KAGENTI_ADK_HOME:-${HOME}/.kagenti/adk}/logs"
+WITH_UI="${usage_with_ui:-false}"
+eval "cli_args=(${usage_cli_args})"
+
+log_ok()       { echo "[ok]       $1"; }
+log_starting() { echo "[starting] $1"; }
+log_error()    { echo "[error]    $1" >&2; exit 1; }
+
+# ── Step 1: Platform + telepresence ──────────────────────────────────────────
+# Set shell env if available (needed for telepresence check)
+eval "$({{ mise_bin }} run adk-server:dev:shell 2>/dev/null)" 2>/dev/null || true
+
+if telepresence list --replacements 2>/dev/null | grep -q adk-server; then
+  log_ok "Platform and telepresence running"
+else
+  log_starting "Starting platform with telepresence (adk-server:dev:start)..."
+  SKIP_PULL=true {{ mise_bin }} run adk-server:dev:start "${cli_args[@]}"
+  # Re-source shell env after start
+  eval "$({{ mise_bin }} run adk-server:dev:shell)"
+  log_ok "Platform and telepresence started"
+fi
+
+# ── Step 2: Local server ────────────────────────────────────────────────────
+if curl -sf localhost:18333/healthcheck >/dev/null 2>&1; then
+  log_ok "Server healthy (localhost:18333)"
+else
+  log_starting "Starting adk-server in background..."
+  mkdir -p "$LOG_DIR"
+  nohup {{ mise_bin }} run adk-server:run >> "$LOG_DIR/adk-server.log" 2>&1 &
+
+  TIMEOUT=60
+  for i in $(seq 1 $TIMEOUT); do
+    if curl -sf localhost:18333/healthcheck >/dev/null 2>&1; then
+      log_ok "Server healthy (localhost:18333)"
+      break
+    fi
+    if [[ $i -eq $TIMEOUT ]]; then
+      log_error "Server failed to start within ${TIMEOUT}s. Check $LOG_DIR/adk-server.log"
+    fi
+    sleep 1
+  done
+fi
+
+# ── Step 3: Local UI dev server with hot-reload (optional) ───────────────────
+if [[ "$WITH_UI" == "true" ]]; then
+  if curl -sf localhost:3000 >/dev/null 2>&1; then
+    log_ok "UI dev server running (localhost:3000)"
+  else
+    log_starting "Starting UI dev server in background..."
+    mkdir -p "$LOG_DIR"
+    nohup {{ mise_bin }} run adk-ui:run:dev >> "$LOG_DIR/adk-ui.log" 2>&1 &
+
+    TIMEOUT=60
+    for i in $(seq 1 $TIMEOUT); do
+      if curl -sf localhost:3000 >/dev/null 2>&1; then
+        log_ok "UI dev server running (localhost:3000)"
+        break
+      fi
+      if [[ $i -eq $TIMEOUT ]]; then
+        log_error "UI dev server failed to start within ${TIMEOUT}s. Check $LOG_DIR/adk-ui.log"
+      fi
+      sleep 1
+    done
+  fi
+fi
+
+echo ""
+echo "Dev environment ready."
+"""
+
+["dev:stop"]
+description = "Stop dev environment (local processes + telepresence + VM)"
+dir = "{{config_root}}"
+run = """
+#!/bin/bash
+# Kill local background processes started by dev:ensure
+for port in 18333 3000 5432 6379 4318; do
+  lsof -ti :$port | xargs kill 2>/dev/null || true
+done
+# Delegate the rest (telepresence + VM) to adk-server:dev:stop
+{{ mise_bin }} run adk-server:dev:stop 2>/dev/null || true
+"""
+
 # release tasks
 
 ["release:set-version"]

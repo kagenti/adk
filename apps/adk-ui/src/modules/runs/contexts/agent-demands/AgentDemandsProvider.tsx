@@ -3,17 +3,14 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import type { FormFulfillments, SettingsFormRender, SettingsFormValues } from '@kagenti/adk';
+import type { FormFulfillments, SettingsFormValues } from '@kagenti/adk';
 import { ModelCapability } from '@kagenti/adk';
 import mapValues from 'lodash/mapValues';
 import { type PropsWithChildren, useCallback, useMemo, useRef, useState } from 'react';
 
 import { useListConnectors } from '#modules/connectors/api/queries/useListConnectors.ts';
 import { useMatchModelProviders } from '#modules/platform-context/api/mutations/useMatchModelProviders.ts';
-import {
-  getInitialSettingsFormValues,
-  transformLegacySettingsDemandsToSettingsForm,
-} from '#modules/runs/settings/utils.ts';
+import { getInitialSettingsFormValues } from '#modules/runs/settings/utils.ts';
 
 import { useA2AClient } from '../a2a-client';
 import { useAgentSecrets } from '../agent-secrets';
@@ -28,17 +25,12 @@ export function AgentDemandsProvider({ children }: PropsWithChildren) {
   const [selectedEmbeddingProviders, setSelectedEmbeddingProviders] = useState<Record<string, string>>({});
   const [selectedLLMProviders, setSelectedLLMProviders] = useState<Record<string, string>>({});
 
-  const legacySettingsDemands = agentClient.demands.settingsDemands;
   const formDemands = agentClient.demands.formDemands;
-  const settingsFormDemand = formDemands?.form_demands.settings_form;
-  const settingsFormDemanded = Boolean(settingsFormDemand);
-
-  const settingsForm: SettingsFormRender | null =
-    formDemands?.form_demands.settings_form ?? transformLegacySettingsDemandsToSettingsForm(legacySettingsDemands);
+  const settingsForm = formDemands?.form_demands.settings_form ?? null;
 
   const initialSettingsFormValues = getInitialSettingsFormValues(settingsForm);
   const formFulfillmentsRef = useRef<FormFulfillments>({
-    form_fulfillments: settingsFormDemanded
+    form_fulfillments: settingsForm
       ? {
           settings_form: {
             values: initialSettingsFormValues,
@@ -46,8 +38,6 @@ export function AgentDemandsProvider({ children }: PropsWithChildren) {
         }
       : {},
   });
-
-  const [selectedSettings, setSelectedSettings] = useState<SettingsFormValues>(initialSettingsFormValues);
 
   const setDefaultSelectedLLMProviders = useCallback(
     (data: Record<string, string[]>) => {
@@ -125,16 +115,12 @@ export function AgentDemandsProvider({ children }: PropsWithChildren) {
 
   const onUpdateSettings = useCallback(
     (values: SettingsFormValues) => {
-      setSelectedSettings(values);
-
-      if (settingsFormDemanded) {
-        provideFormValues({
-          formId: 'settings_form',
-          values,
-        });
-      }
+      provideFormValues({
+        formId: 'settings_form',
+        values,
+      });
     },
-    [provideFormValues, settingsFormDemanded],
+    [provideFormValues],
   );
 
   const { data: connectorsData } = useListConnectors();
@@ -159,24 +145,12 @@ export function AgentDemandsProvider({ children }: PropsWithChildren) {
         selectedLLMProviders,
         selectedEmbeddingProviders,
         providedSecrets,
-        selectedSettings,
-        legacySettingsDemands,
-        settingsFormDemanded,
         formFulfillments: formFulfillmentsRef.current,
         oauthRedirectUri: oauthRedirectUri ?? null,
         connectors: connectorsData?.items ?? [],
       });
     },
-    [
-      contextToken,
-      selectedLLMProviders,
-      selectedEmbeddingProviders,
-      selectedSettings,
-      legacySettingsDemands,
-      settingsFormDemanded,
-      demandedSecrets,
-      connectorsData,
-    ],
+    [contextToken, selectedLLMProviders, selectedEmbeddingProviders, demandedSecrets, connectorsData],
   );
 
   const value = useMemo(
@@ -197,7 +171,7 @@ export function AgentDemandsProvider({ children }: PropsWithChildren) {
       },
       formDemands,
       settingsForm,
-      selectedSettings,
+      initialSettingsFormValues,
       getFulfillments,
       provideFormValues,
       onUpdateSettings,
@@ -214,11 +188,11 @@ export function AgentDemandsProvider({ children }: PropsWithChildren) {
       provideFormValues,
       formDemands,
       settingsForm,
+      initialSettingsFormValues,
       selectEmbeddingProvider,
       selectLLMProvider,
       selectedEmbeddingProviders,
       selectedLLMProviders,
-      selectedSettings,
     ],
   );
 

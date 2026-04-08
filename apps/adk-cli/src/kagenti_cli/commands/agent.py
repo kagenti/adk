@@ -171,6 +171,23 @@ processing_messages = [
 configuration = Configuration()
 
 
+def _exit_with_url_hint(location: str) -> typing.NoReturn:
+    """Print a helpful error message when a URL cannot be registered as an agent and exit."""
+    console.error(f"Failed to register agent from URL: {location}")
+    console.print(
+        "\n[bold]The provided URL does not appear to be a running, A2A-compatible agent.[/bold]\n"
+        "\nCommon causes:\n"
+        "  • The URL points to a source file (e.g. a Dockerfile or repo page) instead of a running agent service\n"
+        "  • The agent service at this URL is not running or not reachable\n"
+        "  • The URL is missing the correct port or path\n"
+        "\n[bold]Hint:[/bold] The URL should point to a live agent service "
+        "(e.g. http://my-agent:8080), not to a source code repository.\n"
+        "If you want to deploy from a container image, pass the image reference directly "
+        "(e.g. [bold]ghcr.io/org/my-agent:latest[/bold]).\n"
+    )
+    sys.exit(1)
+
+
 async def _discover_agent_card(location: str) -> AgentCard:
     """Fetch agent card from a network URL's well-known endpoint."""
     from a2a.utils import AGENT_CARD_WELL_KNOWN_PATH
@@ -228,10 +245,15 @@ async def add_agent(
                     await Provider.create(location=location)
         except httpx.HTTPStatusError as e:
             if e.response.status_code == 422:
-                agent_card = await _discover_agent_card(location)
+                try:
+                    agent_card = await _discover_agent_card(location)
+                except httpx.HTTPStatusError:
+                    _exit_with_url_hint(location)
                 with status("Registering agent with discovered card"):
                     async with configuration.use_platform_client():
                         await Provider.create(location=location, agent_card=agent_card)
+            elif e.response.status_code == 400:
+                _exit_with_url_hint(location)
             else:
                 raise
         console.success(f"Agent [bold]{location}[/bold] added to platform")

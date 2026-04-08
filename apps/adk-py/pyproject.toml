@@ -85,4 +85,5 @@ project-includes = [
     "**/*.ipynb",
 ]
 
-[tool.uv.sources]
+[tool.uv]
+exclude-newer = "3 days"

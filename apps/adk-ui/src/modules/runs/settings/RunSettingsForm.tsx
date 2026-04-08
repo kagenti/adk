@@ -18,10 +18,10 @@ interface Props {
 }
 
 export function RunSettingsForm({ settingsForm }: Props) {
-  const { selectedSettings, onUpdateSettings } = useAgentDemands();
+  const { initialSettingsFormValues, onUpdateSettings } = useAgentDemands();
 
   const form = useForm<SettingsFormValues>({
-    defaultValues: selectedSettings,
+    defaultValues: initialSettingsFormValues,
   });
 
   useEffect(() => {

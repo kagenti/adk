@@ -36,7 +36,7 @@ interface AgentDemandsContextValue {
   embeddingProviders: ModelProvidersContextValue;
   formDemands: FormDemands | null;
   settingsForm: SettingsFormRender | null;
-  selectedSettings: SettingsFormValues | undefined;
+  initialSettingsFormValues: SettingsFormValues;
   getFulfillments: (context: FulfillmentsContext) => Promise<Fulfillments>;
   provideFormValues: ({ formId, values }: ProvideFormValuesParams) => void;
   onUpdateSettings: (settings: SettingsFormValues) => void;

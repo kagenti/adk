@@ -1,0 +1,57 @@
+{{- if .Values.exampleAgent.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: example-agent
+  labels:
+    app: example-agent
+    {{- include "kagenti-adk.labels" . | nindent 4 }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: example-agent
+      {{- include "kagenti-adk.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        app: example-agent
+        {{- include "kagenti-adk.labels" . | nindent 8 }}
+    spec:
+      {{- include "kagenti-adk.imagePullSecrets" . | nindent 6 }}
+      containers:
+        - name: example-agent
+          image: "{{ .Values.exampleAgent.image.repository }}:{{ .Values.exampleAgent.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.exampleAgent.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.exampleAgent.service.port }}
+              protocol: TCP
+          env:
+            - name: HOST
+              value: "0.0.0.0"
+            - name: PORT
+              value: {{ .Values.exampleAgent.service.port | quote }}
+            - name: PLATFORM_URL
+              value: "http://adk-server-svc:{{ .Values.server.service.port }}"
+            - name: PLATFORM_AUTH__SKIP_AUDIENCE_VALIDATION
+              value: "true"
+            - name: OTEL_EXPORTER_OTLP_ENDPOINT
+              value: "http://otel-collector.kagenti-system:8335"
+          livenessProbe:
+            httpGet:
+              path: /healthcheck
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 30
+          readinessProbe:
+            httpGet:
+              path: /healthcheck
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          {{- with .Values.exampleAgent.resources }}
+          resources:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+{{- end }}

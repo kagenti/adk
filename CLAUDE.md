@@ -1,29 +1,29 @@
 # Kagenti ADK
 
-## GitHub Operations
-
-Use `gh` command for GitHub operations.
-
-Repo: `kagenti/adk`
+Repo: `kagenti/adk` — use `gh` for GitHub operations.
 
 All commits must be signed off for DCO compliance (`git commit --signoff`).
+Use conventional commits: `feat:`, `fix:`, `docs:`, `chore:`, `refactor:`, `test:`.
 
-## Useful scripts
+## Quick Reference
 
-- `mise run adk-server:migrations:run` run migrations
-
-## Docs
-
-- Only edit docs under `docs/development/`, never `docs/stable/`
-
-## Development rules
-
-- When working in adk-server make sure you always test the behaviour using the adk-server debugging approach
-- All testing and linting can be done via `mise run check`
-- Formatting can be fixed via `mise run fix`
+- All testing and linting: `mise run check`
+- Fix formatting: `mise run fix`
+- Run migrations: `mise run adk-server:migrations:run`
+- Git hooks setup: `mise run common:setup:git-hooks`
+- Sync embedded code in docs: `mise run docs:fix`
 
 ## Code Style
 
-- Python 3.11+, `ruff` for linting and formatting
-- Line length: 120
-- Git hooks installed via `mise run common:setup:git-hooks`
+- Python 3.11+, `ruff` for linting and formatting, line length: 120
+
+## Development Rules
+
+- When working in adk-server, always test using the adk-server debugging approach
+- Only edit documentation in `docs/development/`, never `docs/stable/`
+- For examples workflow (creating, modifying, testing examples): see `CONTRIBUTING.md` § Examples
+
+## Imported Guidelines
+
+@.agent/rules/agent-guidelines.md
+@.agent/rules/ui-styling-guidelines.md

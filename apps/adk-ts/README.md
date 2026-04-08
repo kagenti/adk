@@ -46,7 +46,7 @@ import {
   JsonRpcTransportFactory,
 } from '@a2a-js/sdk/client';
 
-const baseUrl = 'https://your-adk-instance.com'; // or http://localhost:8333 for local development
+const baseUrl = 'https://your-adk-instance.com'; // or http://adk-api.localtest.me:8080 for local development
 const accessToken = '<user-access-token>';
 
 const api = buildApiClient({

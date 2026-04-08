@@ -67,7 +67,6 @@ The SDK includes extension support for:
 
 - **Citations** - Source attribution (`CitationExtensionServer`, `CitationExtensionSpec`)
 - **Trajectory** - Agent decision logging (`TrajectoryExtensionServer`, `TrajectoryExtensionSpec`)
-- **Settings** - User-configurable agent parameters (`SettingsExtensionServer`, `SettingsExtensionSpec`)
 - **LLM Services** - Platform-managed language models (`LLMServiceExtensionServer`, `LLMServiceExtensionSpec`)
 - **Agent Details** - Metadata and UI enhancements (`AgentDetail`)
 - **And more** - See [Documentation](https://github.com/kagenti/adk/blob/main/docs/stable/agent-development/overview)

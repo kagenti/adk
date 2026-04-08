@@ -6,8 +6,6 @@
       "Bash(git diff:*)",
       "Bash(git branch:*)",
       "Bash(ls:*)",
-      "Bash(make lint:*)",
-      "Bash(make fmt:*)",
       "Bash(pre-commit run:*)"
     ]
   }

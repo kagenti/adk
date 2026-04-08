@@ -248,7 +248,7 @@ async def disconnect(
     ] = "",
     yes: typing.Annotated[bool, typer.Option("--yes", "-y", help="Skip confirmation prompts.")] = False,
     all: typing.Annotated[
-        bool, typer.Option("--all", "-a", help="Deisconnect all connectors without selection.")
+        bool, typer.Option("--all", "-a", help="Disconnect all connectors without selection.")
     ] = False,
 ) -> None:
     """Disconnect one or more connectors."""

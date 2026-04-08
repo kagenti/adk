@@ -1,0 +1,186 @@
+---
+title: "LLM Proxy"
+description: "Leverage Kagenti ADK's model and provider agnostic LLM inference"
+---
+
+When building AI agents, one of the first requirements is connecting to a Large Language Model (LLM). Kagenti ADK provides built-in, OpenAI-compatible LLM inference that is model and provider agnostic.
+
+In order to effectively implement the LLM Proxy Service there are 3 steps to follow:
+
+<Steps>
+    <Step title="Add the LLM service extension to your agent">
+    Import the necessary components and add the LLM service extension to your agent function.
+    </Step>
+
+    <Step title="Configure your LLM request">
+    Specify which model your agent prefers and how you want to access it.
+    </Step>
+
+    <Step title="Use the LLM in your agent">
+    Access the optionally provided LLM configuration and use it with your preferred LLM client.
+    </Step>
+</Steps>
+
+<Note>
+Service Extensions are a type of [A2A Extension](https://a2a-protocol.org/latest/topics/extensions/) that allows you to easily "inject dependencies" into your agent. This follows the inversion of control principle where your agent defines what it needs, and the platform (in this case, Kagenti ADK) is responsible for providing those dependencies.
+</Note>
+
+<Warning>
+Service extensions are optional by definition, so you should always check if they exist before using them.
+</Warning>
+
+
+## Implementing Steps
+
+### 1. Add the LLM service extension to your agent
+
+Import the `LLMServiceExtensionServer` and `LLMServiceExtensionSpec` from the SDK. You will use these within a type hint to let the platform know your agent requires LLM access.
+
+```python
+from kagenti_adk.a2a.extensions import LLMServiceExtensionServer, LLMServiceExtensionSpec
+from a2a.types import Message
+from typing import Annotated
+
+# The extension is added as an Annotated parameter in your agent function
+async def my_agent(
+    input: Message, 
+    llm: Annotated[
+        LLMServiceExtensionServer, ...]
+    ):
+    # agent logic
+    pass
+```
+### 2. Configure your LLM request
+
+Use `LLMServiceExtensionSpec.single_demand()` to request a model. By passing a suggested tuple, you tell the platform which model you'd prefer to use.
+
+```python
+from kagenti_adk.a2a.extensions import LLMServiceExtensionServer, LLMServiceExtensionSpec
+from a2a.types import Message
+from typing import Annotated
+
+# The llm parameter is configured with a specific model demand
+async def my_agent(
+    input: Message, 
+    llm: Annotated[
+        LLMServiceExtensionServer, 
+        LLMServiceExtensionSpec.single_demand(suggested=("ibm/granite-3-3-8b-instruct",))
+    ]
+):
+    # agent logic
+    pass
+```
+
+When you specify a suggested model like `"ibm/granite-3-3-8b-instruct"`the platform:
+
+1. Checks if the requested model is available in your configured environment
+2. Allocates the best available model that matches your requirements
+3. Provides you with the exact model identifier and endpoint details
+
+The platform handles the complexity of model provisioning and endpoint management, so you can focus on building your agent logic.
+
+### 3. Use the LLM in your agent
+
+Once the platform provides the extension, you can extract the OpenAI-compatible configuration.
+
+```python
+from typing import Annotated
+from a2a.utils.message import get_message_text
+from a2a.types import Message
+from kagenti_adk.a2a.extensions import LLMServiceExtensionServer, LLMServiceExtensionSpec
+
+async def my_agent(
+    input: Message,
+    llm: Annotated[
+        LLMServiceExtensionServer,
+        LLMServiceExtensionSpec.single_demand(suggested=("ibm/granite-3-3-8b-instruct",))
+    ]
+) -> None:
+    # Verify that the optional extension was provided
+    if llm and llm.data and llm.data.llm_fulfillments:
+        user_message = get_message_text(input)
+        
+        # Access the resolved LLM configuration
+        llm_config = llm.data.llm_fulfillments.get("default")
+        
+        if llm_config:
+            # These credentials work with any OpenAI-compatible client library
+            api_model = llm_config.api_model
+            api_key = llm_config.api_key
+            api_base = llm_config.api_base
+```
+The platform automatically provides you with:
+
+- **`api_model`**: The specific model identifier that was allocated to your request
+- **`api_key`**: Authentication key for the LLM service
+- **`api_base`**: The base URL for the OpenAI-compatible API endpoint
+
+These credentials work with any OpenAI-compatible client library, making it easy to integrate with popular frameworks like:
+- BeeAI Framework
+- LangChain
+- LlamaIndex
+- OpenAI Python client
+- Custom implementations
+
+<Accordion title="Full Code Example">
+
+This complete example shows how to receive a user message and respond using the credentials provided by the LLM Proxy Service:
+
+{/* <!-- embedme examples/agent-integration/llm-proxy-service/llm-access/src/llm_access/agent.py --> */}
+```python
+# Copyright 2026 © IBM Corp.
+# SPDX-License-Identifier: Apache-2.0
+
+import os
+from typing import Annotated
+
+from a2a.types import Message
+from a2a.utils.message import get_message_text
+from kagenti_adk.a2a.extensions import LLMServiceExtensionServer, LLMServiceExtensionSpec
+from kagenti_adk.a2a.types import AgentMessage
+from kagenti_adk.server import Server
+
+server = Server()
+
+
+@server.agent()
+async def llm_access_example(
+    input: Message,
+    llm: Annotated[
+        LLMServiceExtensionServer, LLMServiceExtensionSpec.single_demand(suggested=("ibm/granite-3-3-8b-instruct",))
+    ],
+):
+    """Agent that uses LLM inference to respond to user input"""
+
+    if llm and llm.data and llm.data.llm_fulfillments:
+        # Extract the user's message
+        user_message = get_message_text(input)
+
+        # Get LLM configuration
+        # Single demand is resolved to default (unless specified otherwise)
+        llm_config = llm.data.llm_fulfillments.get("default")
+
+        if llm_config:
+            # Use the LLM configuration with your preferred client
+            # The platform provides OpenAI-compatible endpoints
+            api_model = llm_config.api_model
+            api_key = llm_config.api_key
+            api_base = llm_config.api_base
+
+            yield AgentMessage(text=f"LLM access configured for model: {api_model}")
+        else:
+            yield AgentMessage(text="LLM configuration not found.")
+    else:
+        yield AgentMessage(text="LLM service not available.")
+
+
+def run():
+    server.run(host=os.getenv("HOST", "127.0.0.1"), port=int(os.getenv("PORT", 8000)))
+
+
+if __name__ == "__main__":
+    run()
+
+```
+
+</Accordion>

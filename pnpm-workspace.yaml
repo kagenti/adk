@@ -59,8 +59,7 @@ packages:
   - apps/adk-ui
   - apps/lint-config
   - apps/adk-ts
-  # TODO: Uncomment, when published to npm
-  # - apps/adk-ts/examples/chat-ui
+  - apps/adk-ts/examples/chat-ui
   - apps/docs-site
   - docs
 
@@ -88,3 +87,6 @@ catalog:
   stylelint: ^17.0.0
   typescript: ^5.9.3
   usehooks-ts: ^3.1.1
+
+minimumReleaseAge: 4320
+minimumReleaseAgeExclude: ["@kagenti/adk", "@kagenti/adk-ui", "@kagenti/adk-lint-config", "@kagenti/docs-site"]
