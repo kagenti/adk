@@ -5,7 +5,7 @@ description: Creates custom TypeScript UIs for Kagenti ADK agents using the @kag
 
 # Kagenti ADK UI
 
-Guide for building custom TypeScript UIs for [Kagenti ADK](https://github.com/kagenti/adk/blob/main/docs/stable/introduction/welcome.mdx) agents using the `@kagenti/adk` SDK.
+Guide for building custom TypeScript UIs for [Kagenti ADK](https://raw.githubusercontent.com/kagenti/adk/main/docs/development/introduction/welcome.mdx) agents using the `@kagenti/adk` SDK.
 
 ## Table of Contents
 
@@ -41,21 +41,21 @@ Guide for building custom TypeScript UIs for [Kagenti ADK](https://github.com/ka
 
 ## Constraints (must follow)
 
-| ID  | Rule |
-| --- | ---- |
-| C1  | **No agent-side changes.** Only create or modify client/UI code. Do not modify the agent's Python code, server wrapper, or backend configuration. |
-| C2  | **Strict minimal scope.** Do not add authentication systems, backend servers, databases, or deployment infrastructure unless explicitly requested. Build the simplest working UI first. |
+| ID  | Rule                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
+| --- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| C1  | **No agent-side changes.** Only create or modify client/UI code. Do not modify the agent's Python code, server wrapper, or backend configuration.                                                                                                                                                                                                                                                                                                                                                                               |
+| C2  | **Strict minimal scope.** Do not add authentication systems, backend servers, databases, or deployment infrastructure unless explicitly requested. Build the simplest working UI first.                                                                                                                                                                                                                                                                                                                                         |
 | C3  | **SDK-first implementation.** Use `@kagenti/adk` SDK helpers (`buildAgentClient`, `handleAgentCard`, `resolveMetadata`, `resolveUserMetadata`, `handleTaskStatusUpdate`, `extractTextFromMessage`, `extractUiExtensionData`, `createAuthenticatedFetch`, `getAgentCardPath`, `streamResponseSchema`, `agentCardSchema`) instead of manually constructing protocol objects. Do not reimplement what the SDK provides. The SDK includes the A2A transport client (`buildAgentClient`) — do not use `@a2a-js/sdk` `ClientFactory`. |
-| C4  | **Documentation-first for SDK usage.** Before implementing any SDK feature, read the corresponding documentation URL (listed in each step). Extract exact imports, function signatures, and types from the docs. Do not guess APIs or rely on outdated memory. |
-| C5  | **Package-first for imports.** If documentation is unclear on exact import paths, inspect the installed `@kagenti/adk` package to discover correct exports. The installed package is authoritative for import paths; documentation is authoritative for behavior and patterns. |
-| C6  | **Type safety required.** Use TypeScript with strict mode. Use SDK-provided types (`Message`, `AgentCard`, `TaskStatusUpdateEvent`, `Part`, `Artifact`, etc.) for all protocol objects. Never use `any` for SDK types. |
-| C7  | **Detect existing tooling.** If the project already uses a specific framework (React, Next.js, Vue, vanilla), build within that framework. If the project uses an existing package manager or bundler, use it. Never force a framework change or create duplicate configuration. |
-| C8  | **Permissions principle of least privilege.** Context tokens must only request permissions the UI actually needs. Do not grant `['*']` for permissions that can be scoped to specific providers or resources. |
-| C9  | **No hardcoded agent identifiers.** Provider IDs, base URLs, and model names must come from environment variables or configuration, never hardcoded in source. |
-| C10 | **Handle all task status update types.** The UI must handle or gracefully degrade for every `TaskStatusUpdateType` the agent may emit: `FormRequired`, `SecretRequired`, `OAuthRequired`, `ApprovalRequired`, `TextInputRequired`. |
-| C11 | **Context & Memory Optimization.** Do not attempt the entire UI in one pass. Follow the checklist iteratively. Use the built-in task/todo tracking tool to track progress — do not create separate markdown tracking files. Do not paste massive error logs; extract only the relevant error. |
-| C12 | **Preserve agent contract.** The UI must faithfully represent the agent's capabilities, forms, and extension demands. Do not skip required form fields, ignore agent demands, or fabricate metadata the agent did not request. |
-| C13 | **Read SDK documentation first.** Before starting any implementation, read the official guide: [Custom UI Getting Started](https://github.com/kagenti/adk/blob/main/docs/stable/custom-ui/getting-started.mdx). |
+| C4  | **Documentation-first for SDK usage.** Before implementing any SDK feature, read the corresponding documentation URL (listed in each step). Extract exact imports, function signatures, and types from the docs. Do not guess APIs or rely on outdated memory.                                                                                                                                                                                                                                                                  |
+| C5  | **Package-first for imports.** If documentation is unclear on exact import paths, inspect the installed `@kagenti/adk` package to discover correct exports. The installed package is authoritative for import paths; documentation is authoritative for behavior and patterns.                                                                                                                                                                                                                                                  |
+| C6  | **Type safety required.** Use TypeScript with strict mode. Use SDK-provided types (`Message`, `AgentCard`, `TaskStatusUpdateEvent`, `Part`, `Artifact`, etc.) for all protocol objects. Never use `any` for SDK types.                                                                                                                                                                                                                                                                                                          |
+| C7  | **Detect existing tooling.** If the project already uses a specific framework (React, Next.js, Vue, vanilla), build within that framework. If the project uses an existing package manager or bundler, use it. Never force a framework change or create duplicate configuration.                                                                                                                                                                                                                                                |
+| C8  | **Permissions principle of least privilege.** Context tokens must only request permissions the UI actually needs. Do not grant `['*']` for permissions that can be scoped to specific providers or resources.                                                                                                                                                                                                                                                                                                                   |
+| C9  | **No hardcoded agent identifiers.** Provider IDs, base URLs, and model names must come from environment variables or configuration, never hardcoded in source.                                                                                                                                                                                                                                                                                                                                                                  |
+| C10 | **Handle all task status update types.** The UI must handle or gracefully degrade for every `TaskStatusUpdateType` the agent may emit: `FormRequired`, `SecretRequired`, `OAuthRequired`, `ApprovalRequired`, `TextInputRequired`.                                                                                                                                                                                                                                                                                              |
+| C11 | **Context & Memory Optimization.** Do not attempt the entire UI in one pass. Follow the checklist iteratively. Use the built-in task/todo tracking tool to track progress — do not create separate markdown tracking files. Do not paste massive error logs; extract only the relevant error.                                                                                                                                                                                                                                   |
+| C12 | **Preserve agent contract.** The UI must faithfully represent the agent's capabilities, forms, and extension demands. Do not skip required form fields, ignore agent demands, or fabricate metadata the agent did not request.                                                                                                                                                                                                                                                                                                  |
+| C13 | **Read SDK documentation first.** Before starting any implementation, read the official guide: [Custom UI Getting Started](https://raw.githubusercontent.com/kagenti/adk/main/docs/development/custom-ui/getting-started.mdx).                                                                                                                                                                                                                                                                                                  |
 
 ---
 
@@ -203,11 +203,11 @@ Handle both platform API errors and agent task failures gracefully.
 
 Use `unwrapResult()` for all API calls. Catch `ApiErrorException` and inspect `error.type`:
 
-| Error Type | Meaning | UI Response |
-| --- | --- | --- |
-| `http` | Server returned error status | Show error message, offer retry |
-| `network` | Connection failed | Show connection error, offer retry |
-| `parse` | Response body unparseable | Show generic error, log for debugging |
+| Error Type   | Meaning                      | UI Response                           |
+| ------------ | ---------------------------- | ------------------------------------- |
+| `http`       | Server returned error status | Show error message, offer retry       |
+| `network`    | Connection failed            | Show connection error, offer retry    |
+| `parse`      | Response body unparseable    | Show generic error, log for debugging |
 | `validation` | Response didn't match schema | Show generic error, log for debugging |
 
 ### Agent Task Failures
@@ -224,7 +224,7 @@ The UI must display clear feedback for:
 - [ ] Agent-reported errors (Error extension metadata)
 - [ ] Timeout / cancellation states
 
-See the [official error handling guide](https://github.com/kagenti/adk/blob/main/docs/stable/custom-ui/error-handling.mdx) for detailed patterns.
+See the [official error handling guide](https://raw.githubusercontent.com/kagenti/adk/main/docs/development/custom-ui/error-handling.mdx) for detailed patterns.
 
 ---
 

@@ -4,7 +4,7 @@ Reference for Step 2 of the kagenti-adk-ui skill.
 
 ## Official Documentation
 
-Read [Permissions and Tokens](https://github.com/kagenti/adk/blob/main/docs/stable/custom-ui/permissions-and-tokens.mdx) and the [Deployment Guide (auth section)](https://github.com/kagenti/adk/blob/main/docs/stable/deploy-agent-stack/deployment-guide.mdx) before proceeding.
+Read [Permissions and Tokens](https://raw.githubusercontent.com/kagenti/adk/main/docs/development/custom-ui/permissions-and-tokens.mdx) and the [Deployment Guide (auth section)](https://raw.githubusercontent.com/kagenti/adk/main/docs/development/deploy-agent-stack/deployment-guide.mdx) before proceeding.
 
 ## Overview
 
@@ -12,10 +12,10 @@ The ADK platform uses OIDC authentication by default (Keycloak is the default pr
 
 There are two independent token types in the system:
 
-| Token Type | Issued By | Purpose | Lifetime |
-| --- | --- | --- | --- |
-| **User Access Token** | OIDC provider (Keycloak) | Authenticate the user for all platform API calls | Provider-configured (typically 5–30 min, auto-refreshable) |
-| **Context Token** | ADK Server (`/api/v1/contexts/{id}/token`) | Grant agents scoped access to platform resources during a conversation | 20 minutes |
+| Token Type            | Issued By                                  | Purpose                                                                | Lifetime                                                   |
+| --------------------- | ------------------------------------------ | ---------------------------------------------------------------------- | ---------------------------------------------------------- |
+| **User Access Token** | OIDC provider (Keycloak)                   | Authenticate the user for all platform API calls                       | Provider-configured (typically 5–30 min, auto-refreshable) |
+| **Context Token**     | ADK Server (`/api/v1/contexts/{id}/token`) | Grant agents scoped access to platform resources during a conversation | 20 minutes                                                 |
 
 The user access token is needed first (Step 2). The context token is created later using the platform API (Step 3).
 
@@ -47,7 +47,7 @@ This mode uses the same OIDC issuer URL, client ID, and client secret as the sta
 
 ### Reference implementation
 
-See [`apps/adk-ui/src/app/(auth)/auth.ts`](https://github.com/kagenti/adk/blob/main/apps/adk-ui/src/app/(auth)/auth.ts) — the `createLocalDevCredentialsProvider()` function implements this pattern using NextAuth's Credentials provider. The `assembleProviders()` function selects between autologin and standard OIDC based on the `isLocalDevAutoLogin` flag.
+See [`apps/adk-ui/src/app/(auth)/auth.ts`](<https://raw.githubusercontent.com/kagenti/adk/main/apps/adk-ui/src/app/(auth)/auth.ts>) — the `createLocalDevCredentialsProvider()` function implements this pattern using NextAuth's Credentials provider. The `assembleProviders()` function selects between autologin and standard OIDC based on the `isLocalDevAutoLogin` flag.
 
 ### Implementation pattern
 
@@ -56,15 +56,15 @@ See [`apps/adk-ui/src/app/(auth)/auth.ts`](https://github.com/kagenti/adk/blob/m
 if (LOCAL_DEV_AUTO_LOGIN) {
   // Show username/password form, then:
   const response = await fetch(`${issuerUrl}/protocol/openid-connect/token`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
     body: new URLSearchParams({
-      grant_type: 'password',
+      grant_type: "password",
       client_id: clientId,
       client_secret: clientSecret,
       username,
       password,
-      scope: 'openid email profile',
+      scope: "openid email profile",
     }),
   });
   const { access_token, refresh_token, expires_in } = await response.json();
@@ -79,31 +79,32 @@ if (LOCAL_DEV_AUTO_LOGIN) {
 
 The UI needs these environment variables (names depend on your framework):
 
-| Variable | Default (from template.env) | Purpose |
-| --- | --- | --- |
-| OIDC_ENABLED | `true` | Whether OIDC auth is enabled |
-| OIDC_PROVIDER_NAME | `Keycloak` | Display name for the OIDC provider |
-| OIDC_PROVIDER_ID | `keycloak` | Provider identifier |
-| OIDC_PROVIDER_CLIENT_ID | `adk-ui` | Client registered in the OIDC provider |
-| OIDC_PROVIDER_CLIENT_SECRET | `adk-ui-secret` | Client secret (only for server-side exchanges) |
-| OIDC_PROVIDER_ISSUER | `http://keycloak.localtest.me:8080/realms/adk` | OIDC discovery endpoint base (internal) |
-| OIDC_PROVIDER_EXTERNAL_ISSUER | (defaults to ISSUER) | Public issuer URL — only needed when internal and public URLs differ (e.g., dev mode) |
-| LOCAL_DEV_AUTO_LOGIN | `false` | Set to `true` to use credentials form instead of OIDC redirect |
+| Variable                      | Default (from template.env)                    | Purpose                                                                               |
+| ----------------------------- | ---------------------------------------------- | ------------------------------------------------------------------------------------- |
+| OIDC_ENABLED                  | `true`                                         | Whether OIDC auth is enabled                                                          |
+| OIDC_PROVIDER_NAME            | `Keycloak`                                     | Display name for the OIDC provider                                                    |
+| OIDC_PROVIDER_ID              | `keycloak`                                     | Provider identifier                                                                   |
+| OIDC_PROVIDER_CLIENT_ID       | `adk-ui`                                       | Client registered in the OIDC provider                                                |
+| OIDC_PROVIDER_CLIENT_SECRET   | `adk-ui-secret`                                | Client secret (only for server-side exchanges)                                        |
+| OIDC_PROVIDER_ISSUER          | `http://keycloak.localtest.me:8080/realms/adk` | OIDC discovery endpoint base (internal)                                               |
+| OIDC_PROVIDER_EXTERNAL_ISSUER | (defaults to ISSUER)                           | Public issuer URL — only needed when internal and public URLs differ (e.g., dev mode) |
+| LOCAL_DEV_AUTO_LOGIN          | `false`                                        | Set to `true` to use credentials form instead of OIDC redirect                        |
 
-These defaults come from the ADK UI's [`template.env`](https://github.com/kagenti/adk/blob/main/apps/adk-ui/template.env) — read it to get the current default values for your environment. Reuse the same OIDC client registration (`adk-ui`) for your custom UI unless you register a new client in Keycloak.
+These defaults come from the ADK UI's [`template.env`](https://raw.githubusercontent.com/kagenti/adk/main/apps/adk-ui/template.env) — read it to get the current default values for your environment. Reuse the same OIDC client registration (`adk-ui`) for your custom UI unless you register a new client in Keycloak.
 
 The OIDC discovery document at `{issuer}/.well-known/openid-configuration` provides the exact authorization, token, and logout endpoint URLs. Always prefer discovery over hardcoded endpoint paths.
 
 ### Local Development
 
 For local development with the default ADK stack (Keycloak):
+
 - Keycloak runs at `http://keycloak.localtest.me:8080`
 - Realm: `adk`
 - Pre-configured clients: `adk-ui`, `adk-server`, `kagenti-cli`
 - Default seed users depend on the deployment configuration
 - **Autologin mode** (`LOCAL_DEV_AUTO_LOGIN=true`) can be used to skip the Keycloak redirect and use a simple credentials form instead
 
-See how the existing ADK UI handles auth at [`apps/adk-ui/src/app/(auth)/auth.ts`](https://github.com/kagenti/adk/blob/main/apps/adk-ui/src/app/(auth)/auth.ts) for a reference implementation using NextAuth, including both the OIDC redirect flow and the local dev autologin credentials provider.
+See how the existing ADK UI handles auth at [`apps/adk-ui/src/app/(auth)/auth.ts`](<https://raw.githubusercontent.com/kagenti/adk/main/apps/adk-ui/src/app/(auth)/auth.ts>) for a reference implementation using NextAuth, including both the OIDC redirect flow and the local dev autologin credentials provider.
 
 ## Using the Access Token
 
@@ -124,7 +125,7 @@ Access tokens expire. The UI should:
 
 If refresh fails (e.g., refresh token expired), redirect the user back to the login page.
 
-See [`apps/adk-ui/src/app/(auth)/utils.ts`](https://github.com/kagenti/adk/blob/main/apps/adk-ui/src/app/(auth)/utils.ts) for the reference token refresh implementation.
+See [`apps/adk-ui/src/app/(auth)/utils.ts`](<https://raw.githubusercontent.com/kagenti/adk/main/apps/adk-ui/src/app/(auth)/utils.ts>) for the reference token refresh implementation.
 
 ## Logout
 

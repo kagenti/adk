@@ -4,7 +4,7 @@ Reference for Step 8 of the kagenti-adk-ui skill.
 
 ## Official Documentation
 
-Read [Agent Responses](https://github.com/kagenti/adk/blob/main/docs/stable/custom-ui/agent-responses.mdx) and [Agent Requirements](https://github.com/kagenti/adk/blob/main/docs/stable/custom-ui/agent-requirements.mdx) before proceeding.
+Read [Agent Responses](https://raw.githubusercontent.com/kagenti/adk/main/docs/development/custom-ui/agent-responses.mdx) and [Agent Requirements](https://raw.githubusercontent.com/kagenti/adk/main/docs/development/custom-ui/agent-requirements.mdx) before proceeding.
 
 ## Overview
 
@@ -40,15 +40,15 @@ For exact import paths and type signatures, inspect the installed `@kagenti/adk/
 
 Trajectory is **always required**. Implement other extensions based on agent needs or user request.
 
-| Extension | URI Suffix | Data Type | When to Implement | Documentation |
-| --- | --- | --- | --- | --- |
-| **Trajectory** | `ui/trajectory/v1` | `TrajectoryMetadata` | **Always (required)** | [Agent Responses](https://github.com/kagenti/adk/blob/main/docs/stable/custom-ui/agent-responses.mdx) |
-| **Citation** | `ui/citation/v1` | `CitationMetadata` | Agent provides source references | [Agent Responses](https://github.com/kagenti/adk/blob/main/docs/stable/custom-ui/agent-responses.mdx) |
-| **Streaming** | `ui/streaming/v1` | `StreamingMetadata` | Agent sends text patches for live streaming | [Agent Responses](https://github.com/kagenti/adk/blob/main/docs/stable/custom-ui/agent-responses.mdx) |
-| **Error** | `ui/error/v1` | `ErrorMetadata` | Agent reports structured errors | [Error Handling](https://github.com/kagenti/adk/blob/main/docs/stable/custom-ui/error-handling.mdx) |
-| **Canvas** | `ui/canvas/v1` | `CanvasEditRequest` | Agent provides editable documents | [Agent Requirements](https://github.com/kagenti/adk/blob/main/docs/stable/custom-ui/agent-requirements.mdx) |
-| **Agent Detail** | `agent-detail/v1` | `AgentDetail` | Display agent metadata (tools, author, mode) | [Agent Requirements](https://github.com/kagenti/adk/blob/main/docs/stable/custom-ui/agent-requirements.mdx) |
-| **Form** | `services/form/v1` | `FormDemands` / `FormFulfillments` | Agent requires structured input (including settings) | [Agent Requirements](https://github.com/kagenti/adk/blob/main/docs/stable/custom-ui/agent-requirements.mdx) |
+| Extension        | URI Suffix         | Data Type                          | When to Implement                                    | Documentation                                                                                                              |
+| ---------------- | ------------------ | ---------------------------------- | ---------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
+| **Trajectory**   | `ui/trajectory/v1` | `TrajectoryMetadata`               | **Always (required)**                                | [Agent Responses](https://raw.githubusercontent.com/kagenti/adk/main/docs/development/custom-ui/agent-responses.mdx)       |
+| **Citation**     | `ui/citation/v1`   | `CitationMetadata`                 | Agent provides source references                     | [Agent Responses](https://raw.githubusercontent.com/kagenti/adk/main/docs/development/custom-ui/agent-responses.mdx)       |
+| **Streaming**    | `ui/streaming/v1`  | `StreamingMetadata`                | Agent sends text patches for live streaming          | [Agent Responses](https://raw.githubusercontent.com/kagenti/adk/main/docs/development/custom-ui/agent-responses.mdx)       |
+| **Error**        | `ui/error/v1`      | `ErrorMetadata`                    | Agent reports structured errors                      | [Error Handling](https://raw.githubusercontent.com/kagenti/adk/main/docs/development/custom-ui/error-handling.mdx)         |
+| **Canvas**       | `ui/canvas/v1`     | `CanvasEditRequest`                | Agent provides editable documents                    | [Agent Requirements](https://raw.githubusercontent.com/kagenti/adk/main/docs/development/custom-ui/agent-requirements.mdx) |
+| **Agent Detail** | `agent-detail/v1`  | `AgentDetail`                      | Display agent metadata (tools, author, mode)         | [Agent Requirements](https://raw.githubusercontent.com/kagenti/adk/main/docs/development/custom-ui/agent-requirements.mdx) |
+| **Form**         | `services/form/v1` | `FormDemands` / `FormFulfillments` | Agent requires structured input (including settings) | [Agent Requirements](https://raw.githubusercontent.com/kagenti/adk/main/docs/development/custom-ui/agent-requirements.mdx) |
 
 ---
 
@@ -63,7 +63,7 @@ Shows intermediate reasoning steps, tool calls, and progress. The trajectory dat
 - Display the `title` prominently and `content` as preformatted/code text.
 - Trajectory is supplementary — never replace the agent's final response with trajectory content.
 
-For the exact `TrajectoryMetadata` type shape, inspect the `trajectoryExtension` from `@kagenti/adk/extensions` and refer to the [Agent Responses documentation](https://github.com/kagenti/adk/blob/main/docs/stable/custom-ui/agent-responses.mdx).
+For the exact `TrajectoryMetadata` type shape, inspect the `trajectoryExtension` from `@kagenti/adk/extensions` and refer to the [Agent Responses documentation](https://raw.githubusercontent.com/kagenti/adk/main/docs/development/custom-ui/agent-responses.mdx).
 
 ---
 
@@ -99,7 +99,7 @@ Structured error information from the agent. Error data contains entries with `m
 - Stack traces should be hidden behind a collapsible toggle — never shown to end users by default.
 - Context data can be rendered as a key-value table for diagnostics.
 
-For the exact type shape, inspect the `errorExtension` from `@kagenti/adk/extensions` and refer to the [Error Handling documentation](https://github.com/kagenti/adk/blob/main/docs/stable/custom-ui/error-handling.mdx).
+For the exact type shape, inspect the `errorExtension` from `@kagenti/adk/extensions` and refer to the [Error Handling documentation](https://raw.githubusercontent.com/kagenti/adk/main/docs/development/custom-ui/error-handling.mdx).
 
 ---
 
@@ -125,7 +125,7 @@ Agents that require structured input (settings, approvals, custom forms) use the
 
 Extract form demands from the agent card, render the appropriate form fields, and submit values via `resolveUserMetadata({ form: ... })`.
 
-For the exact type shape, inspect the `formExtension` from `@kagenti/adk/extensions` and refer to the [Agent Requirements documentation](https://github.com/kagenti/adk/blob/main/docs/stable/custom-ui/agent-requirements.mdx).
+For the exact type shape, inspect the `formExtension` from `@kagenti/adk/extensions` and refer to the [Agent Requirements documentation](https://raw.githubusercontent.com/kagenti/adk/main/docs/development/custom-ui/agent-requirements.mdx).
 
 ---
 

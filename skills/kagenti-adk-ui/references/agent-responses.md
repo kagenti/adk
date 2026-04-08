@@ -4,18 +4,19 @@ Reference for Step 6 of the kagenti-adk-ui skill.
 
 ## Official Documentation
 
-Read [Agent Responses](https://github.com/kagenti/adk/blob/main/docs/stable/custom-ui/agent-responses.mdx) before proceeding.
+Read [Agent Responses](https://raw.githubusercontent.com/kagenti/adk/main/docs/development/custom-ui/agent-responses.mdx) before proceeding.
 
 ## Extracting Text from Messages
 
 Always use `extractTextFromMessage(message)` from `@kagenti/adk` or iterate parts by `kind`. Never access `parts[0].text` directly — messages are multipart.
 
 If you need more control, iterate parts and switch on `part.kind`:
+
 - `'text'` — `part.text` contains plain text content.
 - `'file'` — `part.file` contains `uri`, `name`, and `mimeType`.
 - `'data'` — `part.data` contains arbitrary structured data (`Record<string, unknown>`).
 
-See [`utils.ts`](https://github.com/kagenti/adk/blob/main/apps/adk-ts/examples/chat-ui/src/utils.ts) (`extractTextFromMessage` usage) for the reference pattern.
+See [`utils.ts`](https://raw.githubusercontent.com/kagenti/adk/main/apps/adk-ts/examples/chat-ui/src/utils.ts) (`extractTextFromMessage` usage) for the reference pattern.
 
 ## Rendering File Parts
 
@@ -23,7 +24,7 @@ File parts use URIs that may be `adk://` scheme (platform-managed files) or `htt
 
 For `adk://` URIs, resolve them through the platform API using `api.readFileContent()`. Never fetch `adk://` URIs directly as HTTP URLs.
 
-See the [Manage Files documentation](https://github.com/kagenti/adk/blob/main/docs/stable/custom-ui/agent-responses.mdx) for file resolution patterns.
+See the [Manage Files documentation](https://raw.githubusercontent.com/kagenti/adk/main/docs/development/custom-ui/agent-responses.mdx) for file resolution patterns.
 
 ## Processing Artifacts
 
@@ -31,12 +32,12 @@ Artifacts are generated content the agent produces (files, data exports). They a
 
 ### Artifact vs Message
 
-| Aspect | Message | Artifact |
-| --- | --- | --- |
-| Purpose | Conversational response | Generated content output |
-| Parts | Text, file, data | Text, file, data |
-| Metadata | UI extension data | UI extension data |
-| Typical content | Agent replies | Generated files, reports, structured output |
+| Aspect          | Message                 | Artifact                                    |
+| --------------- | ----------------------- | ------------------------------------------- |
+| Purpose         | Conversational response | Generated content output                    |
+| Parts           | Text, file, data        | Text, file, data                            |
+| Metadata        | UI extension data       | UI extension data                           |
+| Typical content | Agent replies           | Generated files, reports, structured output |
 
 ## Reading Extension Metadata
 

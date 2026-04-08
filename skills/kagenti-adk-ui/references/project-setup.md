@@ -4,7 +4,7 @@ Reference for Step 1 of the kagenti-adk-ui skill.
 
 ## Official Documentation
 
-Read [Getting Started](https://github.com/kagenti/adk/blob/main/docs/stable/custom-ui/getting-started.mdx) before proceeding.
+Read [Getting Started](https://raw.githubusercontent.com/kagenti/adk/main/docs/development/custom-ui/getting-started.mdx) before proceeding.
 
 ## Detect Existing Project
 
@@ -24,21 +24,21 @@ npm install @kagenti/adk eventsource-parser
 
 ### Package Roles
 
-| Package | Purpose |
-| --- | --- |
-| `@kagenti/adk` | Platform API client, A2A client transport, agent card handling, extension helpers, message utilities, authenticated fetch |
-| `eventsource-parser` | SSE stream parsing (optional peer dependency of `@kagenti/adk`, required for streaming) |
+| Package              | Purpose                                                                                                                   |
+| -------------------- | ------------------------------------------------------------------------------------------------------------------------- |
+| `@kagenti/adk`       | Platform API client, A2A client transport, agent card handling, extension helpers, message utilities, authenticated fetch |
+| `eventsource-parser` | SSE stream parsing (optional peer dependency of `@kagenti/adk`, required for streaming)                                   |
 
 ### SDK Entry Points
 
 The `@kagenti/adk` package exposes multiple entry points:
 
-| Import Path | Contents |
-| --- | --- |
-| `@kagenti/adk` | Core client SDK: `buildApiClient`, `buildAgentClient`, `createA2AClient`, `fetchAgentCard`, `handleAgentCard`, `createAuthenticatedFetch`, `unwrapResult`, `extractTextFromMessage`, `buildMessageBuilder`, `handleTaskStatusUpdate`, `resolveUserMetadata`, `buildLLMExtensionFulfillmentResolver`, `getAgentCardPath` |
-| `@kagenti/adk/api` | Platform API client and types |
-| `@kagenti/adk/core` | Core utilities, extension types, helpers |
-| `@kagenti/adk/extensions` | All A2A extension definitions (service and UI) with their types, schemas, and URIs |
+| Import Path               | Contents                                                                                                                                                                                                                                                                                                                |
+| ------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `@kagenti/adk`            | Core client SDK: `buildApiClient`, `buildAgentClient`, `createA2AClient`, `fetchAgentCard`, `handleAgentCard`, `createAuthenticatedFetch`, `unwrapResult`, `extractTextFromMessage`, `buildMessageBuilder`, `handleTaskStatusUpdate`, `resolveUserMetadata`, `buildLLMExtensionFulfillmentResolver`, `getAgentCardPath` |
+| `@kagenti/adk/api`        | Platform API client and types                                                                                                                                                                                                                                                                                           |
+| `@kagenti/adk/core`       | Core utilities, extension types, helpers                                                                                                                                                                                                                                                                                |
+| `@kagenti/adk/extensions` | All A2A extension definitions (service and UI) with their types, schemas, and URIs                                                                                                                                                                                                                                      |
 
 ## Environment Variables
 
@@ -46,7 +46,7 @@ The UI needs at minimum two environment variables for the ADK base URL and agent
 
 Create a `.env.example` file with placeholder values so other developers know what to configure.
 
-See the reference example at [`.env.example`](https://github.com/kagenti/adk/blob/main/apps/adk-ts/examples/chat-ui/.env.example) and [`constants.ts`](https://github.com/kagenti/adk/blob/main/apps/adk-ts/examples/chat-ui/src/constants.ts) for the pattern.
+See the reference example at [`.env.example`](https://raw.githubusercontent.com/kagenti/adk/main/apps/adk-ts/examples/chat-ui/.env.example) and [`constants.ts`](https://raw.githubusercontent.com/kagenti/adk/main/apps/adk-ts/examples/chat-ui/src/constants.ts) for the pattern.
 
 ## TypeScript Configuration
 
