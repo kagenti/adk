@@ -1,0 +1,765 @@
+---
+title: "Wrapping Guide"
+description: "Step-by-step guide for wrapping existing Python agents for the Kagenti ADK platform"
+---
+
+{/*
+  ===== POKYNY PRO AI AGENTY =====
+  Tento soubor obsahuje skrytý obsah určený pro AI agenty provádějící wrapping autonomně.
+  Obsah níže není zobrazen v renderovaném UI, ale je dostupný ve zdrojovém kódu.
+*/}
+
+<Note>
+This guide is primarily intended for AI agents performing the wrapping task autonomously. If you are a human developer, you may still follow it, but the level of detail and explicit step-by-step instructions are optimized for automated execution.
+</Note>
+
+This guide walks you through wrapping an existing Python agent for the Kagenti ADK platform.
+
+If you're looking for a minimal quickstart, see [Wrap Your Existing Agents](./wrap-existing-agents).
+
+## Prerequisites
+
+Before you begin, make sure:
+
+- A supported Python interpreter is active in your environment (Python 3.12+, below 3.14)
+- Your agent source code is available locally
+
+## Overview
+
+The wrapping process follows these steps:
+
+{/* 0. (AI agents only) **Study** the project — read README.md/AGENTS.md, map inputs/outputs, dependencies, configuration, and LLM libraries */}
+1. **Classify** it as single-turn or multi-turn
+2. **Add dependencies** (`kagenti-adk`)
+3. **Create the server wrapper** with an entrypoint
+4. **Wire LLM services** via platform extensions
+5. **Add error handling** using the Error extension
+6. **Map inputs** — forms for structured parameters, file uploads for file-based inputs
+7. **Map configuration** — environment variables and secrets
+8. **Handle output** — trajectory, messages, and artifacts
+9. **Add platform extensions** as needed
+10. **Verify** everything works
+
+{/*
+## Step 1 — Study the Project
+
+Before making any changes, thoroughly study the existing project. Read the `README.md` or `AGENTS.md` if available.
+
+Evaluate and document:
+
+- **Core functionality** — What does the agent do? What are its primary inputs and outputs?
+- **Dependencies** — What external systems, APIs, or databases does the agent depend on?
+- **Configuration** — How is the agent configured (environment variables, config files, CLI arguments)?
+- **LLM libraries** — What does it use for LLM interaction (LangChain, bare OpenAI SDK, etc.)?
+*/}
+
+## Step 1 — Classify the Agent
+
+Read the agent's code and classify it. This determines the `interaction_mode` value:
+
+| interaction_mode | Pattern | Indicators |
+|-----------------|---------|------------|
+| **single-turn** | One request, one response | CLI entrypoint, `argparse`, stateless logic |
+| **multi-turn** | Conversation with memory | Chat loop, message history, session state |
+
+This classification determines:
+
+- How to use `context.store()` and `context.load_history()` — persist input/response for all agents; `load_history()` is required for multi-turn, optional for single-turn
+- Whether to define an `initial_form` for structured inputs (single-turn with named parameters)
+
+## Step 2 — Add and Install Dependencies
+
+With the interaction mode determined, install `kagenti-adk` into your project before writing the wrapper.
+
+Add it to your **existing** dependency file:
+
+- `requirements.txt` → append `kagenti-adk~=<VERSION>`
+- `pyproject.toml` → add to `[project.dependencies]` or `[tool.poetry.dependencies]`
+
+<Warning>
+**Do not** create a new dependency manifest type the project doesn't already use. Do not force `uv` if the project uses `pip`. Add `a2a-sdk` only when the project manages it directly.
+</Warning>
+
+### Version Pinning
+
+If the project already pins `kagenti-adk`, keep that version. Otherwise, resolve the latest stable release:
+
+```bash
+pip install -qq --upgrade kagenti-adk
+pip show kagenti-adk
+```
+
+Then pin with compatible release operator: `kagenti-adk~=<resolved_version>`.
+
+{/*
+### Discovering Import Paths (AI agents)
+
+To find exact import paths from the installed `kagenti_adk` package, run:
+
+```bash
+python -c "
+import pkgutil, inspect, kagenti_adk as sdk
+classes = {}
+for m in pkgutil.walk_packages(sdk.__path__, sdk.__name__ + '.'):
+    try:
+        mod = __import__(m.name, fromlist=['*'])
+        classes.update({n: f'{m.name}.{n}' for n, o in inspect.getmembers(mod, inspect.isclass)})
+    except Exception:
+        pass
+for path in sorted(classes.values()):
+    print(path)
+"
+```
+*/}
+
+<Note>
+The installed package is the authoritative source for import paths and class names. If documentation conflicts with what's actually installed, trust the package. If you hit an `ImportError`, use the introspection script available in the source of this file to map the exact paths.
+</Note>
+
+### Common Import Paths
+
+Below are the most commonly needed imports. Always verify against the installed package if in doubt.
+
+| Class | Import Path |
+|-------|-------------|
+| `Server` | `kagenti_adk.server` |
+| `RunContext` | `kagenti_adk.server.dependencies` |
+| `AgentMessage` | `kagenti_adk.a2a.types` |
+| `AgentDetail`, `AgentDetailTool` | `kagenti_adk.server.agent` |
+| `AgentDetailContributor` | `kagenti_adk.a2a.extensions.ui.agent_detail` |
+| `AgentSkill` | `kagenti_adk.server.constants` |
+| `PlatformContextStore` | `kagenti_adk.server.store.platform_context_store` |
+| `LLMServiceExtensionServer`, `LLMServiceExtensionSpec` | `kagenti_adk.a2a.extensions.services.llm` |
+| `FormServiceExtensionServer`, `FormServiceExtensionSpec` | `kagenti_adk.a2a.extensions.services.form` |
+| `FormRender` | `kagenti_adk.a2a.extensions.ui.form_request` |
+| `TextField`, `FileField`, `FileInfo` | `kagenti_adk.a2a.extensions.common.form` |
+| `SecretsExtensionServer`, `SecretsExtensionSpec` | `kagenti_adk.a2a.extensions.auth.secrets.secrets` |
+| `SecretsServiceExtensionParams`, `SecretDemand` | `kagenti_adk.a2a.extensions.auth.secrets.secrets` |
+| `TrajectoryExtensionServer`, `TrajectoryExtensionSpec` | `kagenti_adk.a2a.extensions.ui.trajectory` |
+| `ErrorExtensionServer`, `ErrorExtensionSpec`, `ErrorExtensionParams` | `kagenti_adk.server.constants` |
+| `File` | `kagenti_adk.platform.file` |
+| `PlatformFileUrl` | `kagenti_adk.util.file` |
+| `Message` | `a2a.types` |
+| `get_message_text` | `a2a.utils.message` |
+
+## Step 3 — Create the Server Wrapper
+
+Create a new file (e.g., `agent.py`) with the wrapping code. The key principle: **adapt inputs and outputs without altering core business logic**.
+
+### Remove CLI Arguments
+
+The wrapper replaces command-line argument parsing with platform mechanisms. Remove all `argparse` or `sys.argv` logic from the original agent and map those inputs to:
+
+- **Forms** — user-provided structured parameters (covered in Step 6)
+- **Settings extension** — runtime behavioral options
+- **Environment Variables extension** — deployment-level configuration
+
+### Extract Metadata
+
+Before writing code, analyze the original source (docstrings, CLI help, README) to populate the `@server.agent()` parameters:
+
+- **`name`** and **`version`** — user-friendly identity
+- **`documentation_url`** — link to original source
+- **`AgentDetail`** — with `interaction_mode` (from Step 1), `tools`, `author`, `programming_language`
+- **`AgentSkill`** entries — with `id`, `name`, `description`, `tags`, `examples`
+
+<Warning>
+**`AgentDetail` fields require typed objects, not plain strings.**
+- `author` must be an `AgentDetailContributor(name="...")` — not a plain string.
+- `tools` must be a list of `AgentDetailTool(name="...", description="...")` — not strings.
+
+```python
+from kagenti_adk.server.agent import AgentDetail, AgentDetailTool
+from kagenti_adk.a2a.extensions.ui.agent_detail import AgentDetailContributor
+
+detail=AgentDetail(
+    interaction_mode="multi-turn",
+    author=AgentDetailContributor(name="Your Name"),
+    programming_language="Python",
+    tools=[AgentDetailTool(name="ToolName", description="What it does")],
+)
+```
+</Warning>
+
+### Server Wrapper Template
+
+```python
+import os
+from typing import Annotated
+
+from a2a.types import Message
+from a2a.utils.message import get_message_text
+from kagenti_adk.server import Server
+from kagenti_adk.server.dependencies import RunContext
+from kagenti_adk.a2a.types import AgentMessage
+
+async def your_existing_logic(message: str) -> str: ...
+
+server = Server()
+
+@server.agent()
+async def my_agent(input: Message, context: RunContext):
+    """Short description shown in registries and UI."""
+    user_message = get_message_text(input)
+
+    # Call your existing agent logic
+    result = await your_existing_logic(user_message)
+
+    # Store conversation context
+    await context.store(input)
+    response = AgentMessage(text=result)
+    await context.store(response)
+
+    yield response
+
+def run():
+    server.run(
+        host=os.getenv("HOST", "127.0.0.1"),
+        port=int(os.getenv("PORT", 8000)),
+    )
+
+if __name__ == "__main__":
+    run()
+```
+
+<Warning>
+**The agent handler must be `async def` and use `yield`.** Synchronous functions are not supported. Even if your underlying logic is synchronous, the wrapper function itself must be an async generator.
+</Warning>
+
+<Warning>
+**Never access `.text` directly on a `Message` object.** Message content is multipart — always use `get_message_text(input)` from `a2a.utils.message`.
+</Warning>
+
+<Warning>
+**Keep platform wiring visible.** Do not hide `@server.agent()`, extension parameters, or integration contracts behind abstraction layers. The main entrypoint should be directly auditable.
+</Warning>
+
+### Single-Turn Workflow
+
+<Steps>
+<Step title="Extract user message">
+Use `get_message_text(input)` (import from `a2a.utils.message`).
+</Step>
+<Step title="Pass inputs to original logic">
+Pass form data or text to original agent logic.
+</Step>
+<Step title="Yield the response">
+Return the result via `yield AgentMessage(text=result)`.
+</Step>
+<Step title="Store context">
+Persist both input and response via `await context.store()`.
+</Step>
+</Steps>
+
+### Multi-Turn Workflow
+
+<Steps>
+<Step title="Store input immediately">
+Save the incoming message with `await context.store(input)`.
+</Step>
+<Step title="Load conversation history">
+Retrieve past messages: `[msg async for msg in context.load_history() if isinstance(msg, Message)]`.
+</Step>
+<Step title="Execute agent logic">
+Pass filtered history to the original agent logic.
+</Step>
+<Step title="Yield response and store it">
+Return the result and save it with `await context.store(response)`.
+</Step>
+</Steps>
+
+<Note>
+If the agent persists or reads context history, pass `context_store=PlatformContextStore()` to `server.run()`.
+</Note>
+
+<Warning>
+**History is never auto-saved.** You must explicitly call `await context.store(input)` and `await context.store(response)`. When streaming, accumulate the full response first and store it once — do not store individual chunks.
+</Warning>
+
+<Warning>
+**Use `context.context_id`, not `context.session_id`.** The `RunContext` object uses `context_id` for session identification.
+</Warning>
+
+## Step 4 — Wire LLM Services
+
+With the wrapper structure in place, connect it to the platform's LLM services. The agent must use the platform's LLM proxy instead of reading API keys from environment variables.
+
+<Steps>
+<Step title="Add the LLM extension parameter">
+```python
+from typing import Annotated
+from a2a.types import Message
+from kagenti_adk.server.dependencies import RunContext
+from kagenti_adk.a2a.extensions.services.llm import LLMServiceExtensionServer, LLMServiceExtensionSpec
+
+async def my_agent(
+    input: Message,
+    context: RunContext,
+    llm: Annotated[LLMServiceExtensionServer, LLMServiceExtensionSpec.single_demand()],
+) -> None: ...
+```
+</Step>
+<Step title="Extract LLM configuration">
+```python
+llm_config = llm.data.llm_fulfillments["default"]
+```
+</Step>
+<Step title="Pass configuration explicitly">
+Pass `api_key`, `api_base`, and `api_model` to your LLM client constructor.
+</Step>
+</Steps>
+
+Set the `suggested` model in `LLMServiceExtensionSpec.single_demand()` to match the model used in the original agent.
+
+<Warning>
+**The `suggested` parameter is a tuple, not a string.** Use `suggested=("gpt-4o",)` — not `suggested="gpt-4o"`. Passing a string causes a Pydantic validation error at import time.
+</Warning>
+
+<Warning>
+**Do not** read API keys or model names from environment variables when the LLM extension is available. Always pass runtime LLM config explicitly.
+</Warning>
+
+<Warning>
+**Use `llm_config.api_model` for the model name**, not `llm_config.identifier`. Extension data uses dot notation (`config.api_key`), not dictionary access (`config.get("api_key")`).
+</Warning>
+
+<Note>
+**If `llm.data.llm_fulfillments["default"]` is missing**, declare a `secrets` extension parameter, request the required API key through it, then construct fulfillment-compatible values and pass `api_key`, `api_base`, and `api_model` explicitly. Do not rewrite `api_base` heuristically unless official docs require it.
+</Note>
+
+<Note>
+The platform requires an **OpenAI-compatible interface**. If the original agent uses a different provider (Anthropic, Google, Ollama, local models), you must:
+
+1. **Replace the provider dependency** — swap the provider-specific client library for one that speaks the OpenAI API
+2. **Replace the client constructor** — instantiate the new client with `api_key=llm_config.api_key`, `base_url=llm_config.api_base`, and `model=llm_config.api_model` from the extension
+3. **Remove provider-specific configuration** — drop hardcoded `base_url` values, local model references, or provider-specific parameters that no longer apply
+</Note>
+
+For complete examples, see the [LLM Proxy Service](../agent-integration/llm-proxy-service) documentation.
+
+## Step 5 — Error Handling
+
+Use the **Error extension** for user-visible failures. Do not report errors via a normal `AgentMessage`.
+
+The simplest approach: just `raise` an exception (e.g., `ValueError`, `RuntimeError`) inside the agent. The platform automatically catches and formats it.
+
+For advanced configuration, add the Error extension parameter to enable stack traces in the UI:
+
+```python
+from typing import Annotated
+from a2a.types import Message
+from kagenti_adk.server.dependencies import RunContext
+from kagenti_adk.server.constants import ErrorExtensionServer, ErrorExtensionSpec, ErrorExtensionParams
+
+async def my_agent(
+    input: Message,
+    context: RunContext,
+    error_ext: Annotated[
+        ErrorExtensionServer,
+        ErrorExtensionSpec(params=ErrorExtensionParams(include_stacktrace=True)),
+    ],
+) -> None: ...
+```
+
+You can attach diagnostic data to `error_ext.context` (a dictionary) before raising — it will be serialized to JSON and shown in the UI. Use `ExceptionGroup` (Python 3.11+) to report multiple failures simultaneously.
+
+For details, see the [Error Handling](../agent-integration/error) documentation.
+
+## Step 6 — Forms (Structured Input)
+
+With the core wrapper and LLM wiring done, map the agent's inputs to the platform. If the original agent accepts **named parameters** (not just free text), map them to an `initial_form`. For free-text-only agents, skip this step.
+
+<Steps>
+<Step title="Define a FormRender">
+Use appropriate field types (`TextField`, `DateField`, `FileField`, etc.). Use `fields=[...]` and `label="..."`.
+</Step>
+<Step title="Create a Pydantic model">
+Field names must match form field IDs exactly.
+</Step>
+<Step title="Add the form extension parameter">
+```python
+from typing import Annotated
+from kagenti_adk.a2a.extensions.services.form import FormServiceExtensionServer, FormServiceExtensionSpec
+from kagenti_adk.a2a.extensions.ui.form_request import FormRender
+
+form_render = FormRender(fields=[])
+
+form: Annotated[
+    FormServiceExtensionServer,
+    FormServiceExtensionSpec.demand(initial_form=form_render),
+]
+```
+</Step>
+<Step title="Parse form data">
+```python
+params = form.parse_initial_form(model=MyParams)
+```
+</Step>
+</Steps>
+
+<Warning>
+**Form field ID mismatch** — Form field `id` values must exactly match the Pydantic model field names. Mismatched IDs cause silent parse failures.
+</Warning>
+
+<Warning>
+**Do not use `parse_initial_form()` truthiness for turn detection** in multi-turn agents. The initial form is available beyond the first interaction. Instead, check for stored state in `context.load_history()` to distinguish first-turn from follow-up turns.
+</Warning>
+
+### Mid-Conversation Input
+
+- **Single free-form question** — use A2A `input-required` event
+- **Structured multi-field input** — use `FormRequestExtensionServer` / `FormRequestExtensionSpec`
+
+For full details and field type reference, see [Collect Input with Forms](../agent-integration/forms).
+
+## Step 6b — Adapt File Inputs
+
+File inputs in the original agent are replaced with form-based uploads — this step extends the form you defined in Step 6. If the original agent reads files from the local filesystem or accepts file paths as arguments, those inputs must be replaced with platform file uploads. **Local filesystem access is not available at runtime.**
+
+<Note>
+Even if the file contains plain text that could be pasted into the message, still convert it to a `FileField` upload. The user expects to upload files the same way the original agent consumed them.
+</Note>
+
+### Detection
+
+Scan the original code for: `open()`, `pathlib.Path.read_*()`, `with open(...)`, `argparse` with `type=argparse.FileType`, CLI file path arguments, or library calls reading from disk (`PIL.Image.open()`, `pandas.read_csv()`, etc.).
+
+### Replacement
+
+<Steps>
+<Step title="Add PlatformApiExtensionSpec parameter">
+The platform `File` API requires `PlatformApiExtensionSpec` declared as an agent function parameter:
+```python
+from typing import Annotated
+from kagenti_adk.a2a.extensions import PlatformApiExtensionServer, PlatformApiExtensionSpec
+
+platform: Annotated[PlatformApiExtensionServer, PlatformApiExtensionSpec()]
+```
+</Step>
+<Step title="Add a FileField to the form">
+Use appropriate `accept` MIME types matching the original agent's file types.
+</Step>
+<Step title="Parse the form">
+Use `form.parse_initial_form(model=...)` with `list[FileInfo] | None` in the Pydantic model.
+</Step>
+<Step title="Resolve the file">
+Extract file ID from `FileInfo.uri` using `PlatformFileUrl`, then call `await File.get(file_id)`. Guard against both dict and object shapes:
+
+```python
+from typing import Any
+from kagenti_adk.platform.file import File
+from kagenti_adk.util.file import PlatformFileUrl
+
+
+async def resolve_file(file_info: Any) -> File:
+    # FileInfo may arrive as a dict or object depending on the runtime
+    if isinstance(file_info, dict):
+        file_uri = file_info.get("uri")
+    else:
+        file_uri = getattr(file_info, "uri", None)
+
+    if not file_uri:
+        raise ValueError("Uploaded file is missing URI.")
+    assert isinstance(file_uri, str)
+    file_id = PlatformFileUrl(file_uri).file_id
+    return await File.get(file_id)
+```
+</Step>
+<Step title="Load content">
+Use `file.load_content()` for raw bytes or the extraction pipeline for documents/images.
+</Step>
+</Steps>
+
+### MIME Type Strategy
+
+Do not restrict `accept` MIME types to only the format the source agent happened to use unless the agent explicitly requires that specific format (e.g., raw image pixels via PIL). For text-processing agents, use the broad MIME list:
+
+```python
+accept=[
+    "text/*",
+    "application/pdf",
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+    "application/msword",
+    "application/vnd.ms-excel",
+    "application/vnd.ms-powerpoint",
+    "image/*",
+]
+```
+
+When using the broad MIME list, implement content-type branching in the handler.
+
+### Text Extraction Strategy
+
+When the agent processes text from non-plaintext files (PDFs, DOCX, images), use the platform's extraction pipeline. Always identify files by `content_type`, not file extension.
+
+1. Check `content_type` — for `text/*` types, read directly via `file.load_content()`
+2. For documents/images — call `file.create_extraction()` and poll `file.get_extraction()` until `status == "completed"`
+3. Handle `"failed"` status with a clear error
+4. Fallback to `file.load_text_content()` if extraction output is unavailable
+5. If text still cannot be read, raise an explicit error — do not silently decode arbitrary binary content
+
+<Warning>
+**Do not assume uploaded file URIs are HTTP URLs.** Parse `adk://` URIs with `PlatformFileUrl`.
+</Warning>
+
+<Warning>
+**Do not skip extraction polling.** `create_extraction()` is async — you must poll `get_extraction()` until completion.
+</Warning>
+
+### Mid-Conversation File Uploads
+
+For multi-turn agents receiving files during conversation (not via initial form), files arrive as `FilePart` entries in A2A message history. Extract them by filtering for `FilePart` with `FileWithUri`, parsing the `adk://` URI via `PlatformFileUrl`, and resolving with `File.get()`.
+
+<Warning>
+**Do not add `default_input_modes`** unless the agent is intentionally designed to accept `FilePart` uploads directly in chat messages — not just via the initial form. Similarly, do not add `default_output_modes` unless the agent actually yields file artifacts.
+</Warning>
+
+For details, see [Working with Files](../agent-integration/files).
+
+## Step 7 — Configuration Variables and Secrets
+
+Map each configuration variable your agent uses to the appropriate platform extension. The mapping rule is straightforward:
+
+{/*
+Sources to inspect for configuration variables:
+1. **Agent code** — look for `os.environ.get`, `os.getenv`, `os.environ[...]`, `dotenv`, config classes
+2. **README.md** — check deployment or configuration instructions
+3. **`.env` / `.env.example`** — if present
+*/}
+
+### Configuration Mapping
+
+| Variable Type | Extension to Use |
+|--------------|-----------------|
+| Third-party API key/token required at runtime (Tavily, SerpAPI, etc.) | **[Secrets](../agent-integration/secrets)** |
+| Deployment/runtime host settings (`HOST`, `PORT`, service URLs, DB strings) | **[Environment Variables](../agent-integration/env-variables)** |
+| User-tunable behavior options (mode, toggle, choice) | **[Settings](../agent-integration/agent-settings)** |
+
+### Requesting Secrets
+
+Declare required secrets with the Secrets extension, then check and request them at runtime:
+
+```python
+from typing import Any
+from kagenti_adk.a2a.extensions.auth.secrets.secrets import SecretsServiceExtensionParams, SecretDemand
+
+
+async def handle_secrets(secrets: Any) -> None:
+    api_key = None
+
+    if secrets and secrets.data and secrets.data.secret_fulfillments and "API_KEY" in secrets.data.secret_fulfillments:
+        api_key = secrets.data.secret_fulfillments["API_KEY"].secret
+    else:
+        secrets_meta = await secrets.request_secrets(
+            params=SecretsServiceExtensionParams(
+                secret_demands={"API_KEY": SecretDemand(name="API_KEY")}
+            )
+        )
+        if secrets_meta and secrets_meta.secret_fulfillments and "API_KEY" in secrets_meta.secret_fulfillments:
+            api_key = secrets_meta.secret_fulfillments["API_KEY"].secret
+```
+
+<Caution>
+**Never assign secrets to `os.environ`!** The platform runs multiple isolated agent instances in a shared environment. Setting `os.environ["KEY"] = value` exposes private keys of one user to every other concurrent execution. Always pass secrets directly to constructors: `Client(api_key=secret_value)`.
+</Caution>
+
+<Warning>
+**Do not assign values to `secrets.data`.** It is a Pydantic model (`SecretsServiceExtensionMetadata`) — assigning to it raises `TypeError`. Always save the secret to a local variable instead.
+</Warning>
+
+<Warning>
+**Do not `yield` or `return` after calling `request_secrets`.** The call suspends execution automatically and resumes when the user provides the secret. Do not proceed with external API calls until the required secret is confirmed present.
+</Warning>
+
+<Warning>
+**Preserve optional auth behavior.** If the original agent supported optional tokens or API keys (e.g., optional GitHub token for higher rate limits), preserve that optional path. Do not force a secret demand for credentials that were optional in the original agent.
+</Warning>
+
+<Warning>
+**Do not collect API keys in forms.** Never pass secrets via plain `TextField` form fields. Use the Secrets extension for user-level secrets and Environment Variables for deployment-level configuration.
+</Warning>
+
+### Credential Audit
+
+Before completing wrapping, confirm:
+
+- Every external API/tool client was inspected for credential source
+- Required credentials are sourced from the Secrets extension and passed explicitly
+- No execution path leaves required API credentials in implicit `os.getenv` / `os.environ` / `dotenv` mode
+
+## Step 8 — Agent Output
+
+With inputs and configuration handled, define how the agent surfaces its results.
+
+### Messages
+
+The primary, final output returned to the user must always be emitted as `AgentMessage(text=...)`. Trajectory is for intermediate steps only — it is not a substitute for the final response.
+
+### Trajectory
+
+Use trajectory to surface intermediate reasoning, tool calls, and progress updates.
+
+**When to use trajectory:**
+
+- **Required** — Multi-step execution, loops, tool calls, progress updates
+- **Required** — Original agent uses logging or `print` statements (convert to trajectory entries)
+- **Required** — Internal steps are not directly visible (emit at milestones: start, phase change, completion, failure)
+- **Optional** — Simple single-step responders with no meaningful intermediate activity
+- **When in doubt** — enable trajectory
+
+```python
+from typing import Annotated
+from a2a.types import Message
+from kagenti_adk.server import Server
+from kagenti_adk.server.dependencies import RunContext
+from kagenti_adk.a2a.types import AgentMessage
+from kagenti_adk.a2a.extensions.ui.trajectory import TrajectoryExtensionServer, TrajectoryExtensionSpec
+
+
+async def do_work() -> str: ...
+
+server = Server()
+
+
+@server.agent()
+async def my_agent(
+    input: Message,
+    context: RunContext,
+    trajectory: Annotated[TrajectoryExtensionServer, TrajectoryExtensionSpec()],
+):
+    yield trajectory.trajectory_metadata(title="Starting analysis", content="Processing input...")
+
+    result = await do_work()
+
+    yield trajectory.trajectory_metadata(title="Analysis complete", content="Found 3 results.")
+    yield AgentMessage(text=result)
+```
+
+Use `group_id` to update an existing trajectory step instead of creating a new one.
+
+<Warning>
+**Do not call `emit()` on `TrajectoryExtensionServer`.** It does not support `.emit()`. You must `yield trajectory.trajectory_metadata(...)`.
+</Warning>
+
+For details, see [Visualize Agent Trajectories](../agent-integration/trajectory).
+
+### Artifacts
+
+If the original agent generates files (CSVs, PDFs, images, structured data), return them as `AgentArtifact`.
+
+<Warning>
+**Never save files to local disk.** Kagenti ADK environments are ephemeral. Generated files should be instantiated in memory and yielded as `AgentArtifact(parts=[file.to_file_part()])`.
+</Warning>
+
+For details, see [Messages and Artifacts](../agent-integration/messages).
+
+## Step 9 — Platform Extensions
+
+Steps 4–8 covered the core extensions (LLM, Error, Forms, Files, Secrets, Trajectory). Use this reference for any additional platform capabilities your agent needs, injected via `Annotated` function parameters.
+
+| Extension | Use When | Documentation |
+|-----------|----------|---------------|
+| **LLM Proxy Service** | Agent needs platform-provided LLM access | [LLM Proxy Service](../agent-integration/llm-proxy-service) |
+| **Forms** | Structured named parameter inputs | [Forms](../agent-integration/forms) |
+| **Trajectory** | Multi-step reasoning, tool calls, progress | [Trajectory](../agent-integration/trajectory) |
+| **Files** | Reading user-uploaded files | [Files](../agent-integration/files) |
+| **Error** | Structured user-visible failures | [Error](../agent-integration/error) |
+| **Settings** | Configurable behavior options | [Settings](../agent-integration/agent-settings) |
+| **OAuth** | OAuth-protected third-party APIs | OAuth |
+| **MCP** | Model Context Protocol tools | [MCP](../agent-integration/mcp) |
+| **Embedding** | Vector search, RAG | [RAG](../agent-integration/rag) |
+| **Approval** | Sensitive tool calls requiring user consent | [Tool Calls](../agent-integration/tool-calls) |
+| **Secrets** | User-provided API keys/tokens at runtime | [Secrets](../agent-integration/secrets) |
+| **Env Variables** | Deployment-level configuration | [Env Variables](../agent-integration/env-variables) |
+| **Canvas** | Editing user-selected artifacts or code | [Canvas](../agent-integration/canvas) |
+| **Citations** | Referencing documents or external URLs | [Citations](../agent-integration/citations) |
+
+<Note>
+Service and UI extensions are optional. Always check presence and data before use (e.g., `if llm and llm.data ...`).
+</Note>
+
+For a complete overview, see [Agent Integration Overview](../agent-integration/overview).
+
+## Step 10 — Update README
+
+Update your project's `README.md` with instructions on running the wrapped agent:
+
+1. **Install dependencies** — using the project's existing tooling (e.g., `pip install -qq -r requirements.txt`)
+2. **Environment configuration** — document required `.env` patterns if `python-dotenv` is used
+3. **Run the server** — e.g., `python server.py`
+4. **Default address** — mention that the server starts at `http://127.0.0.1:8000` (configurable via `HOST` and `PORT` environment variables)
+
+Remove any outdated CLI usage examples (e.g., `argparse`-based commands) that no longer apply.
+
+## Anti-Patterns
+
+Common mistakes to avoid when wrapping an agent:
+
+- **Never access `.text` directly on a `Message` object.** Message content is multipart — always use `get_message_text(input)` from `a2a.utils.message`.
+- **Never use synchronous functions for the agent handler.** Agent functions must be `async def` generators using `yield`.
+{/* - (AI agents) **Never hide platform wiring behind abstraction layers.** Keep `@server.agent()`, extension parameters, and integration contracts visible in the main entrypoint — do not wrap them behind helper classes. */}
+- **Never assume history is auto-saved.** Explicitly call `await context.store(input)` and `await context.store(response)`.
+- **Never assume persistent history without `PlatformContextStore`.** Without it, context storage is in-memory and lost on restart.
+- **Never forget to filter history.** `context.load_history()` returns both `Message` and `Artifact` objects — filter with `isinstance(msg, Message)`.
+- **Never store individual streaming chunks.** Accumulate the full response and store once.
+- **Never treat extension data as dictionaries.** Use dot notation (`config.api_key`, not `config.get("api_key")`).
+- **Never use `llm_config.identifier` as the model name.** Use `llm_config.api_model` instead.
+- **Never assume all extension specs have `.demand()`.** Some use `.single_demand()` or direct instantiation.
+- **Never guess `FormRender` or field attribute names.** `FormRender` uses `fields` (not `items`); `TextField` uses `label` (not `title`).
+- **Never skip null-path handling for forms.** Handle `None` for cancelled or unsubmitted forms.
+- **Never use Forms for a single free-form follow-up question.** Use A2A `input-required` for one-question prompts; reserve Forms for structured multi-field input.
+- **Never save files to local disk.** Environments are ephemeral — generate files in memory and yield as `AgentArtifact`.
+{/* - (AI agents) **Never execute shell commands from user input.** Do not introduce patterns using `eval`, `exec`, `os.system`, or unsanitized `subprocess` calls driven by user/model input. */}
+
+## Verification Checklist
+
+After wrapping, verify the following before considering the task complete.
+
+### Code Quality
+
+- [ ] Every `import` resolves to a real, installed module
+- [ ] Agent function has a meaningful docstring (shown in UI)
+- [ ] Agent handler is `async def` and uses `yield` for responses
+- [ ] No `argparse` or `sys.argv` remains
+{/* - [ ] (AI agents) No business-logic changes unless explicitly approved */}
+- [ ] Temp files created at runtime are cleaned up
+
+### Extensions and Configuration
+
+- [ ] `yield AgentMessage(text=...)` used for all user-facing responses
+- [ ] No environment variables for API keys or model config — extensions used instead
+- [ ] Required external API credentials obtained via Secrets extension
+- [ ] Every requested secret is actually used in the code
+- [ ] LLM config passed explicitly from extension, no fallback chains
+- [ ] Optional extensions checked for presence before use
+- [ ] Errors raise exceptions (not yielded as `AgentMessage`)
+- [ ] No secrets logged, printed, or persisted
+
+### Context and History
+
+- [ ] Input and response stored via `context.store()`
+- [ ] `context_store=PlatformContextStore()` present if context is persisted
+- [ ] Multi-turn uses `context.load_history()`; single-turn only if intentionally needed
+
+### Forms and Files
+
+- [ ] Single-turn with structured params uses `initial_form`
+- [ ] Filesystem file inputs replaced with `FileField` form uploads
+- [ ] Text-processing agents use broad MIME types with content-type branching and extraction
+- [ ] No local filesystem reads for user-provided files
+
+### Dependencies
+
+- [ ] `kagenti-adk~=<VERSION>` added to project's existing dependency file
+
+{/* - [ ] (AI agents) No Dockerfile unless explicitly requested */}
+
+### Validation
+
+- [ ] Start the server, fetch `/.well-known/agent-card.json` — confirm HTTP 200 and valid JSON.
+
+{/*
+  - [ ] (AI agents) Run ONE final validation command: `python -c "import agent"`. This single command confirms all imports resolve correctly — do NOT run intermediate verification commands during wrapping (e.g., checking individual library imports, testing syntax with `ast.parse`, verifying third-party class availability). Trust the import table in Step 2 and the installed packages from requirements.txt.
+*/}
