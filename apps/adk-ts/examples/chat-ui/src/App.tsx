@@ -7,15 +7,16 @@ import { type SubmitEvent, useState } from 'react';
 
 import { useAgent } from './client';
 import { BASE_URL, PROVIDER_ID } from './constants';
+import { LoginForm } from './LoginForm';
 import type { ChatMessage } from './types';
 import { createMessage } from './utils';
 
-export function App() {
+function Chat({ accessToken }: { accessToken?: string }) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState('');
   const [isSending, setIsSending] = useState(false);
 
-  const { session, isInitializing, error, sendMessage } = useAgent();
+  const { session, isInitializing, error, sendMessage } = useAgent(accessToken);
 
   const isError = Boolean(error);
   const isSubmitDisabled = isInitializing || isSending || isError || !input.trim();
@@ -114,4 +115,14 @@ export function App() {
       </form>
     </main>
   );
+}
+
+export function App() {
+  const [accessToken, setAccessToken] = useState<string>();
+
+  if (!accessToken) {
+    return <LoginForm onLogin={setAccessToken} />;
+  }
+
+  return <Chat accessToken={accessToken} />;
 }

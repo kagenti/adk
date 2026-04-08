@@ -8,38 +8,35 @@ Read [A2A Client](https://github.com/kagenti/adk/blob/main/docs/stable/custom-ui
 
 ## Creating the A2A Client
 
-The A2A client communicates directly with the agent via the JSON-RPC protocol. Creating it requires:
+Use `buildAgentClient` from `@kagenti/adk` to create a fully configured A2A client. It handles authenticated fetch, agent card fetching, extension discovery, and JSON-RPC + SSE transport setup. For lower-level control, use `createA2AClient` + `fetchAgentCard` directly.
 
-1. A `ContextToken` from the platform API (Step 2).
-2. `createAuthenticatedFetch(contextToken.token)` to wrap fetch with Bearer auth.
-3. `ClientFactory` from `@a2a-js/sdk/client` configured with `JsonRpcTransportFactory` and `DefaultAgentCardResolver`, both using the authenticated fetch.
-4. `getAgentCardPath(providerId)` from `@kagenti/adk` to get the correct agent card endpoint.
-5. `factory.createFromUrl(baseUrl, agentCardPath)` to create the connected client.
-
-See [`client.ts`](https://github.com/kagenti/adk/blob/main/apps/adk-ts/examples/chat-ui/src/client.ts) for the full reference implementation of client creation.
+See [`client.ts`](https://github.com/kagenti/adk/blob/main/apps/adk-ts/examples/chat-ui/src/client.ts) for the full reference implementation and [Getting Started § 4](https://github.com/kagenti/adk/blob/main/docs/stable/custom-ui/getting-started.mdx) for the usage pattern.
 
 ### Key Points
 
-- `createAuthenticatedFetch(token)` wraps `fetch` with a `Bearer` token header. Use this for **all** authenticated requests.
-- `getAgentCardPath(providerId)` returns the correct path to the agent's card endpoint.
-- `factory.createFromUrl()` fetches the agent card and creates a fully configured client.
+- `buildAgentClient` uses `createAuthenticatedFetch` internally to attach the `Authorization` header.
+- No need to install or use `@a2a-js/sdk` for the A2A transport — the SDK provides it built-in.
+- `eventsource-parser` is an optional peer dependency required for streaming (install it alongside `@kagenti/adk`).
 
 ## Resolving Agent Requirements (Demands)
 
 Agents declare their requirements (LLM, embedding, secrets, etc.) in their agent card. The UI must resolve these into fulfillments.
 
 The flow is:
+
 1. `client.getAgentCard()` — fetch the agent's capabilities.
 2. `handleAgentCard(agentCard)` — returns `{ resolveMetadata, demands }`.
 3. Inspect `demands` to determine what the agent needs.
 4. `resolveMetadata({ llm: llmResolver, ... })` — resolve demands into message metadata.
 
+See [A2A Client § 1](https://github.com/kagenti/adk/blob/main/docs/stable/custom-ui/a2a-client.mdx) for the full demand resolution pattern.
+
 ### `handleAgentCard` Returns
 
-| Property | Type | Purpose |
-| --- | --- | --- |
-| `resolveMetadata` | `(fulfillments: Fulfillments) => Promise<Record<string, unknown>>` | Resolves all demands into message metadata |
-| `demands` | `{ llmDemands?, embeddingDemands?, mcpDemands?, oauthDemands?, secretDemands?, formDemands?, settingsDemands? }` | Extracted demands for inspection |
+| Property          | Type                                                                                                             | Purpose                                    |
+| ----------------- | ---------------------------------------------------------------------------------------------------------------- | ------------------------------------------ |
+| `resolveMetadata` | `(fulfillments: Fulfillments) => Promise<Record<string, unknown>>`                                               | Resolves all demands into message metadata |
+| `demands`         | `{ llmDemands?, embeddingDemands?, mcpDemands?, oauthDemands?, secretDemands?, formDemands?, settingsDemands? }` | Extracted demands for inspection           |
 
 ### Inspecting Demands
 
@@ -52,35 +49,22 @@ When an agent has LLM demands (`demands.llmDemands`), the UI **must** present a 
 **Flow:**
 
 1. After fetching the agent card, inspect `demands.llmDemands.llm_demands` — a record of demand keys to demand objects (each with optional `suggested` model names).
-2. For each demand, call `api.matchModelProviders({ suggested_models, capability: ModelCapability.Llm, score_cutoff: 0.4 })` to discover available models on the platform.
+2. For each demand, call `api.matchModelProviders(...)` to discover available models on the platform.
 3. Render a model selector UI showing matched models for each demand, with the first match pre-selected as the default.
-4. After the user confirms their selection, build LLM fulfillments using the **LLM proxy pattern**:
-
-```typescript
-llm_fulfillments[demandKey] = {
-  identifier: 'llm_proxy',
-  api_base: '{platform_url}/api/v1/openai/',
-  api_key: contextToken.token,
-  api_model: selectedModel,  // user-selected model ID
-};
-```
-
+4. After the user confirms their selection, build LLM fulfillments using the **LLM proxy pattern** — see [A2A Client § 1](https://github.com/kagenti/adk/blob/main/docs/stable/custom-ui/a2a-client.mdx) for the exact shape.
 5. Pass the LLM fulfillment resolver to `resolveMetadata({ llm: resolver })`.
 
-See [`build-fulfillments.ts`](https://github.com/kagenti/adk/blob/main/apps/adk-ui/src/modules/runs/contexts/agent-demands/build-fulfillments.ts) for the reference implementation. The same pattern applies to embedding demands using `identifier: 'embedding_proxy'`.
-
-> [!WARNING]
-> Do not use `buildLLMExtensionFulfillmentResolver()` — it requires pre-configured model providers and does not allow user model selection. Use the manual LLM proxy pattern described above.
+For a simpler approach, use `buildLLMExtensionFulfillmentResolver(api, contextToken)` which handles model matching and fulfillment automatically — see [Agent Requirements § LLM](https://github.com/kagenti/adk/blob/main/docs/stable/custom-ui/agent-requirements.mdx). For full control over model selection UI, see [`build-fulfillments.ts`](https://github.com/kagenti/adk/blob/main/apps/adk-ui/src/modules/runs/contexts/agent-demands/build-fulfillments.ts) for the manual pattern.
 
 ### Other Fulfillment Resolvers
 
-| Demand Type | Resolver Pattern | When Needed |
-| --- | --- | --- |
-| LLM | LLM proxy pattern with `matchModelProviders` + user selection (see above) | Agent requires LLM access |
-| Embedding | Same proxy pattern with `ModelCapability.Embedding` | Agent requires embedding access |
-| OAuth | Custom resolver returning `OAuthFulfillments` with `redirect_uri` | Agent requires OAuth |
-| Secrets | Custom resolver returning `SecretFulfillments` | Agent requires pre-configured secrets |
-| Form | Custom resolver returning `FormFulfillments` | Agent has initial form demands |
+| Demand Type | Resolver Pattern                                                          | When Needed                           |
+| ----------- | ------------------------------------------------------------------------- | ------------------------------------- |
+| LLM         | LLM proxy pattern with `matchModelProviders` + user selection (see above) | Agent requires LLM access             |
+| Embedding   | Same proxy pattern with `ModelCapability.Embedding`                       | Agent requires embedding access       |
+| OAuth       | Custom resolver returning `OAuthFulfillments` with `redirect_uri`         | Agent requires OAuth                  |
+| Secrets     | Custom resolver returning `SecretFulfillments`                            | Agent requires pre-configured secrets |
+| Form        | Custom resolver returning `FormFulfillments`                              | Agent has initial form demands        |
 
 ## Session Pattern
 
@@ -92,7 +76,4 @@ See [`client.ts`](https://github.com/kagenti/adk/blob/main/apps/adk-ts/examples/
 
 ## Anti-Patterns
 
-- Never create the A2A client without `createAuthenticatedFetch`. Unauthenticated clients cannot communicate with platform-proxied agents.
-- Never cache or reuse `metadata` across sessions. Each session must resolve its own metadata.
-- Never skip `handleAgentCard()`. Manually constructing metadata will miss agent demands and break the fulfillment contract.
 - Never ignore unresolved demands. If the agent demands LLM and no resolver is provided, the agent will fail at runtime.

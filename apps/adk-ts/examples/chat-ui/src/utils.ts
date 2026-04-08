@@ -3,10 +3,10 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import type { Client } from '@a2a-js/sdk/client';
-import { buildLLMExtensionFulfillmentResolver, type ContextToken, handleAgentCard, type Message } from '@kagenti/adk';
+import type { A2AClient, ContextToken, Message } from '@kagenti/adk';
+import { buildLLMExtensionFulfillmentResolver, handleAgentCard } from '@kagenti/adk';
 
-import { api } from './api';
+import type { createApi } from './api';
 import type { ChatMessage } from './types';
 
 export function createMessage({ role, text }: Pick<ChatMessage, 'role' | 'text'>): ChatMessage {
@@ -17,7 +17,15 @@ export function createMessage({ role, text }: Pick<ChatMessage, 'role' | 'text'>
   };
 }
 
-export async function resolveAgentMetadata({ client, contextToken }: { client: Client; contextToken: ContextToken }) {
+export async function resolveAgentMetadata({
+  api,
+  client,
+  contextToken,
+}: {
+  api: ReturnType<typeof createApi>;
+  client: A2AClient;
+  contextToken: ContextToken;
+}) {
   const agentCard = await client.getAgentCard();
   const { resolveMetadata } = handleAgentCard(agentCard);
   const llmResolver = buildLLMExtensionFulfillmentResolver(api, contextToken);
@@ -28,8 +36,8 @@ export async function resolveAgentMetadata({ client, contextToken }: { client: C
 
 export function extractTextFromMessage(message: Message | undefined) {
   const text = message?.parts
-    .filter((part) => part.kind === 'text')
-    .map((part) => part.text)
+    .filter((part) => 'text' in part)
+    .map((part) => (part as { text: string }).text)
     .join('\n');
 
   return text;

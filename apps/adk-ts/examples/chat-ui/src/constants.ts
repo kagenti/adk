@@ -6,3 +6,9 @@
 export const BASE_URL = import.meta.env.VITE_ADK_BASE_URL;
 
 export const PROVIDER_ID = import.meta.env.VITE_ADK_PROVIDER_ID;
+
+export const OIDC_ISSUER = import.meta.env.VITE_OIDC_ISSUER;
+
+export const OIDC_CLIENT_ID = import.meta.env.VITE_OIDC_CLIENT_ID;
+
+export const OIDC_CLIENT_SECRET = import.meta.env.VITE_OIDC_CLIENT_SECRET;

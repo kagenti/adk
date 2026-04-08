@@ -106,9 +106,15 @@ body {
 
 .input {
   inline-size: 100%;
-  padding:  0.5rem;
+  padding: 0.5rem;
   border: 1px solid #d1d1d1;
   border-radius: 0.5rem;
   font-size: 1rem;
   line-height: 1.375;
+}
+
+.login-form {
+  display: grid;
+  gap: 0.5rem;
+  max-inline-size: 20rem;
 }

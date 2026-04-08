@@ -19,15 +19,15 @@ Before creating anything, check if the target directory already has a project:
 Add the required SDK packages to the project's existing package manager:
 
 ```bash
-npm install @kagenti/adk @a2a-js/sdk
+npm install @kagenti/adk eventsource-parser
 ```
 
 ### Package Roles
 
 | Package | Purpose |
 | --- | --- |
-| `@kagenti/adk` | Platform API client, agent card handling, extension helpers, message utilities, authenticated fetch |
-| `@a2a-js/sdk` | A2A protocol client for direct agent communication (message streaming, task management) |
+| `@kagenti/adk` | Platform API client, A2A client transport, agent card handling, extension helpers, message utilities, authenticated fetch |
+| `eventsource-parser` | SSE stream parsing (optional peer dependency of `@kagenti/adk`, required for streaming) |
 
 ### SDK Entry Points
 
@@ -35,16 +35,10 @@ The `@kagenti/adk` package exposes multiple entry points:
 
 | Import Path | Contents |
 | --- | --- |
-| `@kagenti/adk` | Core client SDK: `buildApiClient`, `handleAgentCard`, `createAuthenticatedFetch`, `unwrapResult`, `extractTextFromMessage`, `buildMessageBuilder`, `handleTaskStatusUpdate`, `resolveUserMetadata`, `buildLLMExtensionFulfillmentResolver`, `getAgentCardPath` |
+| `@kagenti/adk` | Core client SDK: `buildApiClient`, `buildAgentClient`, `createA2AClient`, `fetchAgentCard`, `handleAgentCard`, `createAuthenticatedFetch`, `unwrapResult`, `extractTextFromMessage`, `buildMessageBuilder`, `handleTaskStatusUpdate`, `resolveUserMetadata`, `buildLLMExtensionFulfillmentResolver`, `getAgentCardPath` |
 | `@kagenti/adk/api` | Platform API client and types |
 | `@kagenti/adk/core` | Core utilities, extension types, helpers |
 | `@kagenti/adk/extensions` | All A2A extension definitions (service and UI) with their types, schemas, and URIs |
-
-The `@a2a-js/sdk` package:
-
-| Import Path | Contents |
-| --- | --- |
-| `@a2a-js/sdk/client` | `ClientFactory`, `ClientFactoryOptions`, `DefaultAgentCardResolver`, `JsonRpcTransportFactory`, `Client` type |
 
 ## Environment Variables
 
@@ -96,6 +90,6 @@ Follow the file organization pattern in the [chat-ui reference example](https://
 
 ## Anti-Patterns
 
-- Never install `@kagenti/adk` and separately install `a2a-sdk` as a Python package. The JS SDK is `@a2a-js/sdk`.
+- Never use `@a2a-js/sdk` `ClientFactory` for custom UIs — use `buildAgentClient` from `@kagenti/adk` instead.
 - Never create both `package.json` and a separate dependency manifest. Use the existing one.
 - Never skip TypeScript strict mode. The SDK relies on proper type narrowing.

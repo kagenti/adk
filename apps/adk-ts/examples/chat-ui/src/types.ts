@@ -3,10 +3,10 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import type { Client } from '@a2a-js/sdk/client';
+import type { A2AClient } from '@kagenti/adk';
 
 export interface Session {
-  client: Client;
+  client: A2AClient;
   contextId: string;
   metadata: Record<string, unknown>;
 }

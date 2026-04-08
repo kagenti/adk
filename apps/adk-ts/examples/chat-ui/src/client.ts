@@ -3,29 +3,28 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import {
-  ClientFactory,
-  ClientFactoryOptions,
-  DefaultAgentCardResolver,
-  JsonRpcTransportFactory,
-} from '@a2a-js/sdk/client';
-import { type ContextToken, createAuthenticatedFetch, getAgentCardPath } from '@kagenti/adk';
+import { buildAgentClient } from '@kagenti/adk';
 import { useEffect, useState } from 'react';
 
-import { createContext, createContextToken } from './api';
+import { createApi, createContext, createContextToken } from './api';
 import { BASE_URL, PROVIDER_ID } from './constants';
 import type { Session } from './types';
 import { extractTextFromMessage, resolveAgentMetadata } from './utils';
 
-async function ensureSession() {
+async function ensureSession(accessToken: string) {
   if (!BASE_URL || !PROVIDER_ID) {
     throw new Error(`Missing required environment variables.`);
   }
 
-  const context = await createContext();
-  const contextToken = await createContextToken(context.id);
-  const client = await createClient(contextToken);
-  const metadata = await resolveAgentMetadata({ client, contextToken });
+  const api = createApi(accessToken);
+  const context = await createContext(api);
+  const contextToken = await createContextToken(api, context.id);
+  const client = await buildAgentClient({
+    baseUrl: BASE_URL,
+    providerId: PROVIDER_ID,
+    token: contextToken.token,
+  });
+  const metadata = await resolveAgentMetadata({ api, client, contextToken });
 
   return {
     client,
@@ -34,23 +33,7 @@ async function ensureSession() {
   };
 }
 
-async function createClient(contextToken: ContextToken) {
-  const fetchImpl = createAuthenticatedFetch(contextToken.token);
-
-  const factory = new ClientFactory(
-    ClientFactoryOptions.createFrom(ClientFactoryOptions.default, {
-      transports: [new JsonRpcTransportFactory({ fetchImpl })],
-      cardResolver: new DefaultAgentCardResolver({ fetchImpl }),
-    }),
-  );
-
-  const agentCardPath = getAgentCardPath(PROVIDER_ID);
-  const client = await factory.createFromUrl(BASE_URL, agentCardPath);
-
-  return client;
-}
-
-export function useAgent() {
+export function useAgent(accessToken: string) {
   const [session, setSession] = useState<Session>();
   const [isInitializing, setIsInitializing] = useState(false);
   const [error, setError] = useState('');
@@ -66,7 +49,7 @@ export function useAgent() {
       try {
         setIsInitializing(true);
 
-        const session = await ensureSession();
+        const session = await ensureSession(accessToken);
 
         if (cancelled) {
           return;
@@ -91,7 +74,7 @@ export function useAgent() {
     return () => {
       cancelled = true;
     };
-  }, [session]);
+  }, [session, accessToken]);
 
   const sendMessage = async ({ text }: { text: string }) => {
     if (!session) {
@@ -103,11 +86,10 @@ export function useAgent() {
     const runStream = async () => {
       const stream = client.sendMessageStream({
         message: {
-          kind: 'message',
-          role: 'user',
           messageId: crypto.randomUUID(),
+          role: 'ROLE_USER',
           contextId,
-          parts: [{ kind: 'text', text }],
+          parts: [{ text }],
           metadata,
         },
       });
@@ -115,9 +97,16 @@ export function useAgent() {
       let agentText = '';
 
       for await (const event of stream) {
-        if (event.kind === 'status-update' || event.kind === 'message') {
-          const message = event.kind === 'message' ? event : event.status.message;
-          const text = extractTextFromMessage(message);
+        if ('statusUpdate' in event && event.statusUpdate) {
+          const text = extractTextFromMessage(event.statusUpdate.status?.message);
+
+          if (text) {
+            agentText += text;
+          }
+        }
+
+        if ('message' in event && event.message) {
+          const text = extractTextFromMessage(event.message);
 
           if (text) {
             agentText += text;

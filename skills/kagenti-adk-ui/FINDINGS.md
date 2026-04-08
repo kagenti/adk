@@ -29,6 +29,8 @@ const client = await factory.createFromUrl(baseUrl, agentCardPath);
 
 **Fix:** Replace `ClientFactory` instructions with the custom JSON-RPC + SSE pattern. Explain the endpoint URL pattern. Add `eventsource-parser` to required dependencies.
 
+**Resolution:** The SDK now provides `buildAgentClient` from `@kagenti/adk` which handles the JSON-RPC + SSE transport directly. `@a2a-js/sdk` is no longer needed for custom UIs.
+
 ---
 
 ## 2. Missing dependency: `eventsource-parser` (`references/project-setup.md`)

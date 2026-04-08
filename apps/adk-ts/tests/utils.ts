@@ -45,8 +45,8 @@ export async function accumulateResponse(stream: ReturnType<Client['client']['se
   let responseText = '';
 
   for await (const event of stream) {
-    if (event.kind === 'status-update') {
-      const textPart = event.status.message?.parts.find(isTextPart);
+    if ('statusUpdate' in event && event.statusUpdate) {
+      const textPart = event.statusUpdate.status?.message?.parts.find(isTextPart);
 
       if (textPart) {
         responseText = textPart.text;

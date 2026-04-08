@@ -3,14 +3,10 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import {
-  ClientFactory,
-  ClientFactoryOptions,
-  DefaultAgentCardResolver,
-  JsonRpcTransportFactory,
-} from '@a2a-js/sdk/client';
 import net from 'net';
 
+import type { A2AClient } from '../src/client/a2a/transport';
+import { createA2AClient as createA2ATransportClient, fetchAgentCard } from '../src/client/a2a/transport';
 import { buildMessageBuilder, handleAgentCard } from '../src/client/core';
 
 export async function getRandomPort(): Promise<number> {
@@ -34,15 +30,12 @@ export async function getRandomPort(): Promise<number> {
 }
 
 export async function createA2AClient(baseUrl: string) {
-  const agentCardPath = '.well-known/agent-card.json';
-  const factory = new ClientFactory(
-    ClientFactoryOptions.createFrom(ClientFactoryOptions.default, {
-      transports: [new JsonRpcTransportFactory()],
-      cardResolver: new DefaultAgentCardResolver(),
-    }),
-  );
-  const client = await factory.createFromUrl(baseUrl, agentCardPath);
-  const agentCard = await client.getAgentCard();
+  const agentCardUrl = `${baseUrl}/.well-known/agent-card.json`;
+  const agentCard = await fetchAgentCard(agentCardUrl, fetch);
+
+  const endpointUrl = `${baseUrl}/`;
+  const extensions = agentCard.capabilities.extensions?.map(({ uri }) => uri);
+  const client: A2AClient = createA2ATransportClient({ endpointUrl, agentCard, fetchImpl: fetch, extensions });
 
   const { demands } = handleAgentCard(agentCard);
   const createMessage = buildMessageBuilder(agentCard);
