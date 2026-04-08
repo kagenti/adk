@@ -1,0 +1,317 @@
+---
+title: "Streaming"
+description: "Understand the delta-based streaming protocol that delivers tokens to clients in real time using JSON Patch."
+---
+
+Kagenti ADK uses a delta-based streaming protocol to deliver agent output to clients token by token. When your agent yields strings, parts, or metadata, the SDK automatically converts them into incremental [JSON Patch (RFC 6902)](https://datatracker.ietf.org/doc/html/rfc6902) operations extended with a custom `str_ins` operation for efficient text insertion. Clients apply these patches to reconstruct the message progressively.
+
+This is fully transparent to agent code — you yield values as described in [Messages](./messages), and the SDK handles streaming automatically. This page explains the underlying protocol for custom UI developers and advanced use cases.
+
+## How it works
+
+<Steps>
+  <Step title="Agent yields values">
+    Your agent yields strings, `Part` objects, `Metadata`, or convenience wrappers like `AgentMessage`.
+  </Step>
+  <Step title="Server accumulates and patches">
+    The `MessageAccumulator` collects yielded values into a draft message and emits JSON Patch operations for each change.
+  </Step>
+  <Step title="Patches travel in event metadata">
+    Each patch is sent as a `TaskStatusUpdateEvent` with the patch list in its `metadata` under the streaming extension URI.
+  </Step>
+  <Step title="Client applies patches">
+    The client applies patches to a local draft, reconstructing the message incrementally. When the task completes, the final full message is also sent for reconciliation.
+  </Step>
+</Steps>
+
+## Extension negotiation
+
+Streaming is an opt-in A2A extension. Clients that support it include the extension in their request; agents that support it advertise it in their agent card capabilities.
+
+| Side | Mechanism |
+| :--- | :--- |
+| **Server** | Advertises `streaming: true` in the agent card capabilities. The SDK does this automatically. |
+| **Client** | Includes the streaming extension URI in the request. The `@kagenti/adk` TypeScript helpers do this automatically. |
+
+If the client does not request the extension, the server sends only the final complete message at task completion — fully backward compatible. Consumer code using the `StreamingExtensionClient` (Python) or the `@kagenti/adk` helpers (TypeScript) works identically in both cases.
+
+**Extension URI:**
+```
+https://a2a-extensions.adk.kagenti.dev/ui/streaming/v1
+```
+
+## Wire format
+
+Streaming patches are carried in `TaskStatusUpdateEvent.metadata` under the extension URI key. Each update contains a list of JSON Patch operations and a `message_id` for client-side correlation.
+
+```json
+{
+  "status": { "state": "working" },
+  "metadata": {
+    "https://a2a-extensions.adk.kagenti.dev/ui/streaming/v1": {
+      "message_update": [
+        { "op": "replace", "path": "", "value": { "message_id": "abc-123", "parts": [{ "text": "Hello " }] } }
+      ],
+      "message_id": "abc-123"
+    }
+  }
+}
+```
+
+Subsequent token updates use `str_ins`:
+
+```json
+{
+  "message_update": [
+    { "op": "str_ins", "path": "/parts/0/text", "pos": 6, "value": "world" }
+  ],
+  "message_id": "abc-123"
+}
+```
+
+### Patch operations
+
+The protocol uses three JSON Patch operations:
+
+| Operation | When used | Example |
+| :--- | :--- | :--- |
+| `replace` | Initialize the message draft (root replace) or update a field | `{ "op": "replace", "path": "", "value": { "message_id": "...", "parts": [...] } }` |
+| `add` | Append a new part to the message or add metadata | `{ "op": "add", "path": "/parts/-", "value": { "text": "new part" } }` |
+| `str_ins` | Insert text at a position in an existing string (token streaming) | `{ "op": "str_ins", "path": "/parts/0/text", "pos": 6, "value": "world" }` |
+
+<Tip>
+The `str_ins` operation is a custom extension inspired by [json-crdt-patch](https://jsonjoy.com/specs/json-crdt-patch). Standard RFC 6902 operations (`remove`, `move`, `copy`, `test`) are not used by the protocol. Clients that cannot handle `str_ins` can fall back to rendering the final complete message.
+</Tip>
+
+### `str_ins` operation
+
+The `str_ins` operation inserts text into an existing string value at a specific position:
+
+```json
+{ "op": "str_ins", "path": "/parts/0/text", "pos": 5, "value": "inserted text" }
+```
+
+| Field | Type | Description |
+| :--- | :--- | :--- |
+| `op` | `"str_ins"` | Operation identifier |
+| `path` | string | JSON Pointer to the target string |
+| `pos` | number | Character index to insert at. If omitted, appends to end |
+| `value` | string | Text to insert |
+
+The insertion logic is: `result = str[:pos] + value + str[pos:]`
+
+### Patch type definitions
+
+<Tabs>
+  <Tab title="Python">
+  ```python
+  from kagenti_adk.types import JsonPatchOp, JsonPatch
+
+  # JsonPatchOp is a TypedDict:
+  # {
+  #     "op": str,        # "replace" | "add" | "str_ins"  (required)
+  #     "path": str,      # JSON Pointer path               (required)
+  #     "value": JsonValue # Patch value                     (optional)
+  #     "pos": int         # str_ins insertion position       (optional)
+  # }
+  #
+  # JsonPatch = list[JsonPatchOp]
+  ```
+  </Tab>
+  <Tab title="TypeScript">
+  ```typescript
+  import type { StreamingPatch } from "@kagenti/adk";
+
+  // StreamingPatch (Zod-validated):
+  // {
+  //   op: string;
+  //   path: string;
+  //   value?: unknown;
+  //   pos?: number;
+  // }
+  ```
+  </Tab>
+</Tabs>
+
+## Server-side: MessageAccumulator
+
+The `MessageAccumulator` is a 3-level state machine that converts agent yields into streaming patches. It runs automatically inside the SDK — agent code does not interact with it directly.
+
+### State machine
+
+```
+┌─────────────────────────────────────────────────────────┐
+│  Base Level (idle)                                      │
+│  • Passthrough: Message, TaskStatus → no accumulation   │
+│  • str / Part / Metadata / dict → enter MessageContext  │
+└─────────────────────┬───────────────────────────────────┘
+                      │ accumulating yield
+                      ▼
+┌─────────────────────────────────────────────────────────┐
+│  MessageContext                                         │
+│  • Part → add to parts, emit add/replace patch          │
+│  • Metadata → merge metadata, emit incremental patch    │
+│  • dict → convert to DataPart, emit add patch           │
+│  • str → enter TextPartContext                          │
+│  • Control yield → flush draft, return to Base          │
+└─────────────────────┬───────────────────────────────────┘
+                      │ string yield
+                      ▼
+┌─────────────────────────────────────────────────────────┐
+│  TextPartContext                                        │
+│  • str → append chunk, emit str_ins patch               │
+│  • Part / Metadata → finalize text part, return to      │
+│    MessageContext                                       │
+│  • Control yield → flush all, return to Base            │
+└─────────────────────────────────────────────────────────┘
+```
+
+### Example: what the accumulator emits
+
+When an agent yields three string chunks:
+
+```python
+yield "Hello "
+yield "world"
+yield "!"
+```
+
+The accumulator emits these patches:
+
+```json
+// First chunk: root replace (initializes the draft)
+{ "op": "replace", "path": "", "value": { "message_id": "abc-123", "parts": [{ "text": "Hello " }] } }
+
+// Second chunk: str_ins (appends to existing text)
+{ "op": "str_ins", "path": "/parts/0/text", "pos": 6, "value": "world" }
+
+// Third chunk: str_ins
+{ "op": "str_ins", "path": "/parts/0/text", "pos": 11, "value": "!" }
+```
+
+### Mixed yields
+
+You can freely mix strings, parts, and metadata in a single agent turn. The accumulator handles transitions between contexts:
+
+```python
+yield "Thinking..."           # starts TextPartContext, emits replace
+yield Part(text="Here is ")   # finalizes text part, adds new Part
+yield "the answer."           # starts new TextPartContext for next text
+yield Metadata({"source": "web"})  # finalizes text, emits metadata patch
+```
+
+## Client-side consumption
+
+### Python client
+
+The `StreamingExtensionClient` wraps raw A2A event streams into a unified delta-based API. It works identically whether the server supports streaming or not.
+
+```python
+from kagenti_adk.a2a.extensions.streaming import (
+    StreamingExtensionClient,
+    StreamingExtensionSpec,
+    TextDelta,
+    PartDelta,
+    MetadataDelta,
+    ArtifactDelta,
+    StateChange,
+)
+from a2a.types import TaskState
+
+
+async def consume_stream(a2a_client, msg):
+    spec = StreamingExtensionSpec()
+    streaming = StreamingExtensionClient(spec)
+
+    async for delta, task in streaming.stream(a2a_client.send_message(msg)):
+        match delta:
+            case TextDelta(part_index=idx, delta=text):
+                # Append text to part at idx
+                print(text, end="", flush=True)
+            case PartDelta(part_index=idx, part=part):
+                # New part added at idx
+                print(part)
+            case MetadataDelta(metadata=meta):
+                # Metadata updated
+                print(meta)
+            case ArtifactDelta(event=evt):
+                # Artifact update
+                print(evt)
+            case StateChange(state=state, message=msg):
+                if state == TaskState.TASK_STATE_COMPLETED:
+                    print()  # done
+```
+
+**Delta types:**
+
+| Type | Fields | Description |
+| :--- | :--- | :--- |
+| `TextDelta` | `part_index`, `delta` | A text chunk inserted into an existing part |
+| `PartDelta` | `part_index`, `part` | A new part added to the message |
+| `MetadataDelta` | `metadata` | Message metadata added or updated |
+| `ArtifactDelta` | `event` | An artifact update event |
+| `StateChange` | `state`, `message` | A task state transition (working, completed, etc.) |
+
+### TypeScript client
+
+The `@kagenti/adk` package provides helpers for extracting and applying streaming patches in the browser.
+
+```typescript
+import { extractStreamingPatches, applyPatches } from "@kagenti/adk";
+
+let draft: Record<string, unknown> = {};
+
+for await (const event of stream) {
+  if (event.kind === "status-update") {
+    const patches = extractStreamingPatches(event.status.message?.metadata);
+
+    if (patches) {
+      draft = applyPatches(draft, patches);
+      renderDraft(draft);
+    }
+  }
+}
+```
+
+`applyPatches` mutates the draft in place and returns it. It supports `replace`, `add`, and `str_ins` operations.
+
+<Tip>
+The Kagenti ADK UI (`adk-ui`) already handles streaming patch application automatically. These helpers are for custom UI implementations.
+</Tip>
+
+## Artifact streaming
+
+Artifacts use a separate chunked streaming mechanism via `ArtifactChunk`. Unlike message streaming, artifacts bypass the `MessageAccumulator` and are handled directly.
+
+```python
+from a2a.types import Part
+from kagenti_adk.a2a.types import ArtifactChunk
+
+
+# @server.agent(...)
+async def my_agent():
+    artifact_id = "doc-001"
+
+    # Stream artifact in chunks
+    yield ArtifactChunk(
+        parts=[Part(text="Chapter 1: Introduction\n")],
+        artifact_id=artifact_id,
+        name="report.md",
+    )
+
+    yield ArtifactChunk(
+        parts=[Part(text="Chapter 2: Methods\n")],
+        artifact_id=artifact_id,
+        last_chunk=True,  # signals the final chunk
+    )
+```
+
+Set `last_chunk=True` on the final chunk to signal completion. The server appends chunks with the same `artifact_id` until it sees the last chunk.
+
+## Backward compatibility
+
+The streaming protocol is fully backward compatible:
+
+- **Non-streaming clients** receive the complete final message at `TASK_STATE_COMPLETED`, as before. Streaming patches in metadata are ignored.
+- **Non-streaming servers** send full messages. The `StreamingExtensionClient` decomposes these into the same `PartDelta` / `MetadataDelta` / `StateChange` deltas, so consumer code is identical.
+- **Reconciliation**: When a full message arrives whose `message_id` was already streamed via patches, the client suppresses duplicate parts and only emits any new parts beyond the streamed prefix.
