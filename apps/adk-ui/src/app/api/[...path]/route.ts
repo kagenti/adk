@@ -42,9 +42,7 @@ async function handler(request: NextRequest, context: RouteContext) {
     }
 
     const { accessToken } = token;
-    if (accessToken) {
-      headers.set('Authorization', `Bearer ${accessToken}`);
-    }
+    headers.set('Authorization', `Bearer ${accessToken}`);
   }
 
   const { forwarded, forwardedHost, forwardedFor, forwardedProto } = await getProxyHeaders(headers, nextUrl);

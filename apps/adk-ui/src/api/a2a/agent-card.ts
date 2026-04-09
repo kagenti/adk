@@ -15,7 +15,7 @@ export async function getAgentClient(providerId: string, token: string): Promise
     providerId,
     token,
     baseFetch: clientFetch,
-  }) as Promise<A2AClient>;
+  });
 }
 
 async function clientFetch(input: RequestInfo, init?: RequestInit) {

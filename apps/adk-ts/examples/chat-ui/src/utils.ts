@@ -28,8 +28,8 @@ export async function resolveAgentMetadata({ client, contextToken }: { client: A
 
 export function extractTextFromMessage(message: Message | undefined) {
   const text = message?.parts
-    .filter((part) => 'text' in part)
-    .map((part) => (part as { text: string }).text)
+    .filter((part): part is { text: string } => 'text' in part)
+    .map((part) => part.text)
     .join('\n');
 
   return text;
