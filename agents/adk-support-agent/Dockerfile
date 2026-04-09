@@ -1,5 +1,7 @@
+ARG UV_VERSION=0.11.2
+FROM ghcr.io/astral-sh/uv:${UV_VERSION} AS uv
 FROM python:3.13-slim
-COPY --from=ghcr.io/astral-sh/uv:0.9.5 /uv /bin/uv
+COPY --from=uv /uv /bin/uv
 WORKDIR /app
 COPY . .
 RUN UV_COMPILE_BYTECODE=1 HOME=/tmp uv sync --no-cache --link-mode copy

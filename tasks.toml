@@ -133,6 +133,7 @@ run = "true" # Empty tests in case there are no tests
 ["adk:start"]
 depends = [
   "adk-server:build",
+  "agents:adk-support-agent:build",
   "microshift-vm:build",
 ]
 raw = true
@@ -166,6 +167,7 @@ fi
     --image-pull-mode="$PULL_MODE" \
     --set kagenti-adk:auth.nextauthDevUrl="http://localhost:3000" \
     --set kagenti-adk:server.image.tag=local \
+    --set kagenti-adk:exampleAgent.image.tag=local \
     ${UI_TAG-} "$@"
 """
 

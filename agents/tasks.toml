@@ -5,6 +5,10 @@ depends = ["agents:*:check"]
 
 # adk-support-agent
 
+["agents:adk-support-agent:build"]
+dir = "{{config_root}}/agents/adk-support-agent"
+run = "docker build -t ghcr.io/kagenti/adk/agents/adk-support-agent:local --load ."
+
 ["agents:adk-support-agent:check"]
 depends = ["agents:adk-support-agent:check:*"]
 
