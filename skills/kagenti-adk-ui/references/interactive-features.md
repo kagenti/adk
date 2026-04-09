@@ -4,7 +4,7 @@ Reference for Step 7 of the kagenti-adk-ui skill.
 
 ## Official Documentation
 
-Read [A2A Client](https://raw.githubusercontent.com/kagenti/adk/main/docs/development/custom-ui/a2a-client.mdx) and [Agent Requirements](https://raw.githubusercontent.com/kagenti/adk/main/docs/development/custom-ui/agent-requirements.mdx) before proceeding.
+Read [A2A Client](https://raw.githubusercontent.com/kagenti/adk/main/docs/stable/custom-ui/a2a-client.mdx) and [Agent Requirements](https://raw.githubusercontent.com/kagenti/adk/main/docs/stable/custom-ui/agent-requirements.mdx) before proceeding.
 
 ## Overview
 
@@ -36,7 +36,7 @@ The form request contains a `FormRender` object with a `fields` array. Each fiel
 | Checkbox       | `'checkbox'`       | `id`, `label`, `required?`, `default?`                     |
 | Checkbox Group | `'checkbox-group'` | `id`, `label`, `options: SelectFieldOption[]`, `required?` |
 
-For exact type definitions, inspect `FormField` and related types from `@kagenti/adk/extensions`. See the [Agent Requirements documentation](https://raw.githubusercontent.com/kagenti/adk/main/docs/development/custom-ui/agent-requirements.mdx) for form handling details.
+For exact type definitions, inspect `FormField` and related types from `@kagenti/adk/extensions`. See the [Agent Requirements documentation](https://raw.githubusercontent.com/kagenti/adk/main/docs/stable/custom-ui/agent-requirements.mdx) for form handling details.
 
 ### Rendering
 

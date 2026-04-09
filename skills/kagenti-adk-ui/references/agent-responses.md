@@ -4,7 +4,7 @@ Reference for Step 6 of the kagenti-adk-ui skill.
 
 ## Official Documentation
 
-Read [Agent Responses](https://raw.githubusercontent.com/kagenti/adk/main/docs/development/custom-ui/agent-responses.mdx) before proceeding.
+Read [Agent Responses](https://raw.githubusercontent.com/kagenti/adk/main/docs/stable/custom-ui/agent-responses.mdx) before proceeding.
 
 ## Extracting Text from Messages
 
@@ -24,7 +24,7 @@ File parts use URIs that may be `adk://` scheme (platform-managed files) or `htt
 
 For `adk://` URIs, resolve them through the platform API using `api.readFileContent()`. Never fetch `adk://` URIs directly as HTTP URLs.
 
-See the [Manage Files documentation](https://raw.githubusercontent.com/kagenti/adk/main/docs/development/custom-ui/agent-responses.mdx) for file resolution patterns.
+See the [Manage Files documentation](https://raw.githubusercontent.com/kagenti/adk/main/docs/stable/custom-ui/agent-responses.mdx) for file resolution patterns.
 
 ## Processing Artifacts
 

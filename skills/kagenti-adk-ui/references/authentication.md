@@ -4,7 +4,7 @@ Reference for Step 2 of the kagenti-adk-ui skill.
 
 ## Official Documentation
 
-Read [Permissions and Tokens](https://raw.githubusercontent.com/kagenti/adk/main/docs/development/custom-ui/permissions-and-tokens.mdx) and the [Deployment Guide (auth section)](https://raw.githubusercontent.com/kagenti/adk/main/docs/development/deploy-agent-stack/deployment-guide.mdx) before proceeding.
+Read [Permissions and Tokens](https://raw.githubusercontent.com/kagenti/adk/main/docs/stable/custom-ui/permissions-and-tokens.mdx) and the [Deployment Guide (auth section)](https://raw.githubusercontent.com/kagenti/adk/main/docs/stable/deploy-agent-stack/deployment-guide.mdx) before proceeding.
 
 ## Overview
 

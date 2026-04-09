@@ -4,7 +4,7 @@ Reference for Step 5 of the kagenti-adk-ui skill.
 
 ## Official Documentation
 
-Read [User Messages](https://raw.githubusercontent.com/kagenti/adk/main/docs/development/custom-ui/user-messages.mdx) and [A2A Client](https://raw.githubusercontent.com/kagenti/adk/main/docs/development/custom-ui/a2a-client.mdx) before proceeding.
+Read [User Messages](https://raw.githubusercontent.com/kagenti/adk/main/docs/stable/custom-ui/user-messages.mdx) and [A2A Client](https://raw.githubusercontent.com/kagenti/adk/main/docs/stable/custom-ui/a2a-client.mdx) before proceeding.
 
 ## Sending Messages
 
@@ -72,7 +72,7 @@ Returns an array of typed update objects indicating what the UI must do:
 
 The `metadata` from the initial `resolveMetadata()` call must be included on **every** message sent to the agent. This ensures the agent receives its demand fulfillments on each turn.
 
-For follow-up messages that include user responses (form submissions, approvals), merge the additional metadata from `resolveUserMetadata()` with the session metadata. See the [User Messages documentation](https://raw.githubusercontent.com/kagenti/adk/main/docs/development/custom-ui/user-messages.mdx) for the exact merge pattern.
+For follow-up messages that include user responses (form submissions, approvals), merge the additional metadata from `resolveUserMetadata()` with the session metadata. See the [User Messages documentation](https://raw.githubusercontent.com/kagenti/adk/main/docs/stable/custom-ui/user-messages.mdx) for the exact merge pattern.
 
 ## Streaming Text Accumulation
 

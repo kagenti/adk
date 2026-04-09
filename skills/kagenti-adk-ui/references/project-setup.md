@@ -4,7 +4,7 @@ Reference for Step 1 of the kagenti-adk-ui skill.
 
 ## Official Documentation
 
-Read [Getting Started](https://raw.githubusercontent.com/kagenti/adk/main/docs/development/custom-ui/getting-started.mdx) before proceeding.
+Read [Getting Started](https://raw.githubusercontent.com/kagenti/adk/main/docs/stable/custom-ui/getting-started.mdx) before proceeding.
 
 ## Detect Existing Project
 

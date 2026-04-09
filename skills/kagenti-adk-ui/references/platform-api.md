@@ -4,7 +4,7 @@ Reference for Step 3 of the kagenti-adk-ui skill.
 
 ## Official Documentation
 
-Read [Platform API Client](https://raw.githubusercontent.com/kagenti/adk/main/docs/development/custom-ui/platform-api-client.mdx) and [Permissions and Tokens](https://raw.githubusercontent.com/kagenti/adk/main/docs/development/custom-ui/permissions-and-tokens.mdx) before proceeding.
+Read [Platform API Client](https://raw.githubusercontent.com/kagenti/adk/main/docs/stable/custom-ui/platform-api-client.mdx) and [Permissions and Tokens](https://raw.githubusercontent.com/kagenti/adk/main/docs/stable/custom-ui/permissions-and-tokens.mdx) before proceeding.
 
 ## Creating the API Client
 
@@ -45,7 +45,7 @@ Only request permissions the UI actually needs:
 
 Every API call returns `ApiResult<T>`. Always use `unwrapResult()` to extract the data or throw an `ApiErrorException`. The exception's `error.type` field is one of: `'http'`, `'network'`, `'parse'`, `'validation'`.
 
-See the [error handling documentation](https://raw.githubusercontent.com/kagenti/adk/main/docs/development/custom-ui/error-handling.mdx) for detailed patterns.
+See the [error handling documentation](https://raw.githubusercontent.com/kagenti/adk/main/docs/stable/custom-ui/error-handling.mdx) for detailed patterns.
 
 ## Available API Endpoints
 

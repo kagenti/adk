@@ -5,7 +5,7 @@ description: Creates custom TypeScript UIs for Kagenti ADK agents using the @kag
 
 # Kagenti ADK UI
 
-Guide for building custom TypeScript UIs for [Kagenti ADK](https://raw.githubusercontent.com/kagenti/adk/main/docs/development/introduction/welcome.mdx) agents using the `@kagenti/adk` SDK.
+Guide for building custom TypeScript UIs for [Kagenti ADK](https://raw.githubusercontent.com/kagenti/adk/main/docs/stable/introduction/welcome.mdx) agents using the `@kagenti/adk` SDK.
 
 ## Table of Contents
 
@@ -55,7 +55,7 @@ Guide for building custom TypeScript UIs for [Kagenti ADK](https://raw.githubuse
 | C10 | **Handle all task status update types.** The UI must handle or gracefully degrade for every `TaskStatusUpdateType` the agent may emit: `FormRequired`, `SecretRequired`, `OAuthRequired`, `ApprovalRequired`, `TextInputRequired`.                                                                                                                                                                                                                                                                                              |
 | C11 | **Context & Memory Optimization.** Do not attempt the entire UI in one pass. Follow the checklist iteratively. Use the built-in task/todo tracking tool to track progress — do not create separate markdown tracking files. Do not paste massive error logs; extract only the relevant error.                                                                                                                                                                                                                                   |
 | C12 | **Preserve agent contract.** The UI must faithfully represent the agent's capabilities, forms, and extension demands. Do not skip required form fields, ignore agent demands, or fabricate metadata the agent did not request.                                                                                                                                                                                                                                                                                                  |
-| C13 | **Read SDK documentation first.** Before starting any implementation, read the official guide: [Custom UI Getting Started](https://raw.githubusercontent.com/kagenti/adk/main/docs/development/custom-ui/getting-started.mdx).                                                                                                                                                                                                                                                                                                  |
+| C13 | **Read SDK documentation first.** Before starting any implementation, read the official guide: [Custom UI Getting Started](https://raw.githubusercontent.com/kagenti/adk/main/docs/stable/custom-ui/getting-started.mdx).                                                                                                                                                                                                                                                                                                  |
 
 ---
 
@@ -224,7 +224,7 @@ The UI must display clear feedback for:
 - [ ] Agent-reported errors (Error extension metadata)
 - [ ] Timeout / cancellation states
 
-See the [official error handling guide](https://raw.githubusercontent.com/kagenti/adk/main/docs/development/custom-ui/error-handling.mdx) for detailed patterns.
+See the [official error handling guide](https://raw.githubusercontent.com/kagenti/adk/main/docs/stable/custom-ui/error-handling.mdx) for detailed patterns.
 
 ---
 
