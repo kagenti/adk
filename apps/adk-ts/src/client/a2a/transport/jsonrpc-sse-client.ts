@@ -9,6 +9,14 @@ import { streamResponseSchema } from '../protocol/schemas';
 import type { Task } from '../protocol/types';
 import type { A2AClient, CreateA2AClientParams } from './types';
 
+function generateId(): string {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return generateId();
+  }
+  // Fallback for non-secure contexts (e.g. HTTP in browsers)
+  return `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+}
+
 export function createA2AClient({ endpointUrl, agentCard, fetchImpl, extensions }: CreateA2AClientParams): A2AClient {
   const headers = new Headers({ 'Content-Type': 'application/json' });
 
@@ -22,7 +30,7 @@ export function createA2AClient({ endpointUrl, agentCard, fetchImpl, extensions 
       headers,
       body: JSON.stringify({
         jsonrpc: '2.0',
-        id: crypto.randomUUID(),
+        id: generateId(),
         method,
         params,
       }),
@@ -52,7 +60,7 @@ export function createA2AClient({ endpointUrl, agentCard, fetchImpl, extensions 
         headers,
         body: JSON.stringify({
           jsonrpc: '2.0',
-          id: crypto.randomUUID(),
+          id: generateId(),
           method: 'SendStreamingMessage',
           params,
         }),
