@@ -6,25 +6,24 @@
 import { buildAgentClient } from '@kagenti/adk';
 import { useEffect, useState } from 'react';
 
-import { createApi, createContext, createContextToken } from './api';
+import { createContext, createContextToken } from './api';
 import { BASE_URL, PROVIDER_ID } from './constants';
 import type { Session } from './types';
 import { extractTextFromMessage, resolveAgentMetadata } from './utils';
 
-async function ensureSession(accessToken: string) {
+async function ensureSession() {
   if (!BASE_URL || !PROVIDER_ID) {
     throw new Error(`Missing required environment variables.`);
   }
 
-  const api = createApi(accessToken);
-  const context = await createContext(api);
-  const contextToken = await createContextToken(api, context.id);
+  const context = await createContext();
+  const contextToken = await createContextToken(context.id);
   const client = await buildAgentClient({
     baseUrl: BASE_URL,
     providerId: PROVIDER_ID,
     token: contextToken.token,
   });
-  const metadata = await resolveAgentMetadata({ api, client, contextToken });
+  const metadata = await resolveAgentMetadata({ client, contextToken });
 
   return {
     client,
@@ -33,7 +32,7 @@ async function ensureSession(accessToken: string) {
   };
 }
 
-export function useAgent(accessToken: string) {
+export function useAgent() {
   const [session, setSession] = useState<Session>();
   const [isInitializing, setIsInitializing] = useState(false);
   const [error, setError] = useState('');
@@ -49,7 +48,7 @@ export function useAgent(accessToken: string) {
       try {
         setIsInitializing(true);
 
-        const session = await ensureSession(accessToken);
+        const session = await ensureSession();
 
         if (cancelled) {
           return;
@@ -74,7 +73,7 @@ export function useAgent(accessToken: string) {
     return () => {
       cancelled = true;
     };
-  }, [session, accessToken]);
+  }, [session]);
 
   const sendMessage = async ({ text }: { text: string }) => {
     if (!session) {

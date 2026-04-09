@@ -6,7 +6,7 @@
 import type { A2AClient, ContextToken, Message } from '@kagenti/adk';
 import { buildLLMExtensionFulfillmentResolver, handleAgentCard } from '@kagenti/adk';
 
-import type { createApi } from './api';
+import { api } from './api';
 import type { ChatMessage } from './types';
 
 export function createMessage({ role, text }: Pick<ChatMessage, 'role' | 'text'>): ChatMessage {
@@ -17,15 +17,7 @@ export function createMessage({ role, text }: Pick<ChatMessage, 'role' | 'text'>
   };
 }
 
-export async function resolveAgentMetadata({
-  api,
-  client,
-  contextToken,
-}: {
-  api: ReturnType<typeof createApi>;
-  client: A2AClient;
-  contextToken: ContextToken;
-}) {
+export async function resolveAgentMetadata({ client, contextToken }: { client: A2AClient; contextToken: ContextToken }) {
   const agentCard = await client.getAgentCard();
   const { resolveMetadata } = handleAgentCard(agentCard);
   const llmResolver = buildLLMExtensionFulfillmentResolver(api, contextToken);

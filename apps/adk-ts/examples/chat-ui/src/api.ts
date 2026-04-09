@@ -3,24 +3,19 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { buildApiClient, createAuthenticatedFetch, unwrapResult } from '@kagenti/adk';
+import { buildApiClient, unwrapResult } from '@kagenti/adk';
 
 import { BASE_URL, PROVIDER_ID } from './constants';
 
-export function createApi(accessToken: string) {
-  return buildApiClient({
-    baseUrl: BASE_URL,
-    fetch: createAuthenticatedFetch(accessToken),
-  });
-}
+export const api = buildApiClient({ baseUrl: BASE_URL });
 
-export async function createContext(api: ReturnType<typeof createApi>) {
+export async function createContext() {
   const result = await api.createContext({ provider_id: PROVIDER_ID });
 
   return unwrapResult(result);
 }
 
-export async function createContextToken(api: ReturnType<typeof createApi>, contextId: string) {
+export async function createContextToken(contextId: string) {
   const result = await api.createContextToken({
     context_id: contextId,
     grant_global_permissions: {
