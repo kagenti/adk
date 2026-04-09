@@ -11,16 +11,24 @@ This is fully transparent to agent code — you yield values as described in [Me
 
 <Steps>
   <Step title="Agent yields values">
+
     Your agent yields strings, `Part` objects, `Metadata`, or convenience wrappers like `AgentMessage`.
+
   </Step>
   <Step title="Server accumulates and patches">
+
     The `MessageAccumulator` collects yielded values into a draft message and emits JSON Patch operations for each change.
+
   </Step>
   <Step title="Patches travel in event metadata">
+
     Each patch is sent as a `TaskStatusUpdateEvent` with the patch list in its `metadata` under the streaming extension URI.
+
   </Step>
   <Step title="Client applies patches">
+
     The client applies patches to a local draft, reconstructing the message incrementally. When the task completes, the final full message is also sent for reconciliation.
+
   </Step>
 </Steps>
 
@@ -80,7 +88,9 @@ The protocol uses three JSON Patch operations:
 | `str_ins` | Insert text at a position in an existing string (token streaming) | `{ "op": "str_ins", "path": "/parts/0/text", "pos": 6, "value": "world" }` |
 
 <Tip>
+
 The `str_ins` operation is a custom extension inspired by [json-crdt-patch](https://jsonjoy.com/specs/json-crdt-patch). Standard RFC 6902 operations (`remove`, `move`, `copy`, `test`) are not used by the protocol. Clients that cannot handle `str_ins` can fall back to rendering the final complete message.
+
 </Tip>
 
 ### `str_ins` operation
@@ -104,6 +114,7 @@ The insertion logic is: `result = str[:pos] + value + str[pos:]`
 
 <Tabs>
   <Tab title="Python">
+
   ```python
   from kagenti_adk.types import JsonPatchOp, JsonPatch
 
@@ -117,8 +128,10 @@ The insertion logic is: `result = str[:pos] + value + str[pos:]`
   #
   # JsonPatch = list[JsonPatchOp]
   ```
+
   </Tab>
   <Tab title="TypeScript">
+
   ```typescript
   import type { StreamingPatch } from "@kagenti/adk";
 
@@ -130,6 +143,7 @@ The insertion logic is: `result = str[:pos] + value + str[pos:]`
   //   pos?: number;
   // }
   ```
+
   </Tab>
 </Tabs>
 
@@ -276,7 +290,9 @@ for await (const event of stream) {
 `applyPatches` mutates the draft in place and returns it. It supports `replace`, `add`, and `str_ins` operations.
 
 <Tip>
+
 The Kagenti ADK UI (`adk-ui`) already handles streaming patch application automatically. These helpers are for custom UI implementations.
+
 </Tip>
 
 ## Artifact streaming
