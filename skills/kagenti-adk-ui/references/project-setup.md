@@ -19,15 +19,14 @@ Before creating anything, check if the target directory already has a project:
 Add the required SDK packages to the project's existing package manager:
 
 ```bash
-npm install @kagenti/adk eventsource-parser
+npm install @kagenti/adk
 ```
 
 ### Package Roles
 
-| Package              | Purpose                                                                                                                   |
-| -------------------- | ------------------------------------------------------------------------------------------------------------------------- |
-| `@kagenti/adk`       | Platform API client, A2A client transport, agent card handling, extension helpers, message utilities, authenticated fetch |
-| `eventsource-parser` | SSE stream parsing (optional peer dependency of `@kagenti/adk`, required for streaming)                                   |
+| Package        | Purpose                                                                                                                   |
+| -------------- | ------------------------------------------------------------------------------------------------------------------------- |
+| `@kagenti/adk` | Platform API client, A2A client transport, agent card handling, extension helpers, message utilities, authenticated fetch |
 
 ### SDK Entry Points
 

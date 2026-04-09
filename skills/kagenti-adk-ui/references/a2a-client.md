@@ -16,7 +16,6 @@ See [`client.ts`](https://raw.githubusercontent.com/kagenti/adk/main/apps/adk-ts
 
 - `buildAgentClient` uses `createAuthenticatedFetch` internally to attach the `Authorization` header.
 - No need to install or use `@a2a-js/sdk` for the A2A transport — the SDK provides it built-in.
-- `eventsource-parser` is an optional peer dependency required for streaming (install it alongside `@kagenti/adk`).
 
 ## Resolving Agent Requirements (Demands)
 

@@ -22,7 +22,7 @@ extensions, and calling the Kagenti ADK platform API.
 ## Installation
 
 ```bash
-npm install @kagenti/adk eventsource-parser
+npm install @kagenti/adk
 ```
 
 ## Quickstart

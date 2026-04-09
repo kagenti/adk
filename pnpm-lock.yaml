@@ -143,9 +143,6 @@ importers:
       '@kagenti/adk':
         specifier: workspace:*
         version: link:../..
-      eventsource-parser:
-        specifier: ^3.0.0
-        version: 3.0.6
       react:
         specifier: ^19.2.4
         version: 19.2.4

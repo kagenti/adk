@@ -3,25 +3,11 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+import { EventSourceParserStream } from 'eventsource-parser/stream';
+
 import { streamResponseSchema } from '../protocol/schemas';
 import type { Task } from '../protocol/types';
 import type { A2AClient, CreateA2AClientParams } from './types';
-
-interface ParsedEvent {
-  event?: string;
-  data: string;
-}
-
-async function loadEventSourceParserStream(): Promise<{
-  new (): TransformStream<string, ParsedEvent>;
-}> {
-  try {
-    const mod = await import('eventsource-parser/stream');
-    return (mod as { EventSourceParserStream: new () => TransformStream<string, ParsedEvent> }).EventSourceParserStream;
-  } catch {
-    throw new Error('eventsource-parser is required for streaming. Install it: npm install eventsource-parser');
-  }
-}
 
 export function createA2AClient({ endpointUrl, agentCard, fetchImpl, extensions }: CreateA2AClientParams): A2AClient {
   const headers = new Headers({ 'Content-Type': 'application/json' });
@@ -79,8 +65,6 @@ export function createA2AClient({ endpointUrl, agentCard, fetchImpl, extensions 
       if (!response.body) {
         throw new Error('Response body is empty');
       }
-
-      const EventSourceParserStream = await loadEventSourceParserStream();
 
       const eventStream = response.body.pipeThrough(new TextDecoderStream()).pipeThrough(new EventSourceParserStream());
       const reader = eventStream.getReader();
