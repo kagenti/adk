@@ -568,9 +568,9 @@ async def handle_secrets(secrets: SecretsExtensionServer) -> None:
             api_key = secrets_meta.secret_fulfillments["API_KEY"].secret
 ```
 
-<Caution>
+<Warning>
 **Never assign secrets to `os.environ`!** The platform runs multiple isolated agent instances in a shared environment. Setting `os.environ["KEY"] = value` exposes private keys of one user to every other concurrent execution. Always pass secrets directly to constructors: `Client(api_key=secret_value)`.
-</Caution>
+</Warning>
 
 <Warning>
 **Do not assign values to `secrets.data`.** It is a Pydantic model (`SecretsServiceExtensionMetadata`) — assigning to it raises `TypeError`. Always save the secret to a local variable instead.
