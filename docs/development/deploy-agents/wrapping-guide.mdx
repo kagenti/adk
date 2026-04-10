@@ -34,14 +34,15 @@ The wrapping process follows these steps:
 3. **Create the server wrapper** with an entrypoint
 4. **Wire LLM services** via platform extensions
 5. **Add error handling** using the Error extension
-6. **Map inputs** — forms for structured parameters, file uploads for file-based inputs
-7. **Map configuration** — environment variables and secrets
-8. **Handle output** — trajectory, messages, and artifacts
-9. **Add platform extensions** as needed
-10. **Verify** everything works
+6. **Map inputs** — forms for structured parameters
+7. **Adapt file inputs** — file uploads for file-based inputs
+8. **Map configuration** — environment variables and secrets
+9. **Handle output** — trajectory, messages, and artifacts
+10. **Add platform extensions** as needed
+11. **Verify** everything works
 
 {/*
-## Step 1 — Study the Project
+## Step 0 — Study the Project
 
 Before making any changes, thoroughly study the existing project. Read the `README.md` or `AGENTS.md` if available.
 
@@ -335,7 +336,7 @@ The platform requires an **OpenAI-compatible interface**. If the original agent 
 3. **Remove provider-specific configuration** — drop hardcoded `base_url` values, local model references, or provider-specific parameters that no longer apply
 </Note>
 
-For complete examples, see the [LLM Proxy Service](../agent-integration/llm-proxy-service) documentation.
+For complete examples, see the [LLM Proxy Service](../sdk/llm-proxy-service) documentation.
 
 ## Step 5 — Error Handling
 
@@ -363,7 +364,7 @@ async def my_agent(
 
 You can attach diagnostic data to `error_ext.context` (a dictionary) before raising — it will be serialized to JSON and shown in the UI. Use `ExceptionGroup` (Python 3.11+) to report multiple failures simultaneously.
 
-For details, see the [Error Handling](../agent-integration/error) documentation.
+For details, see the [Error Handling](../sdk/error) documentation.
 
 ## Step 6 — Forms (Structured Input)
 
@@ -410,9 +411,9 @@ params = form.parse_initial_form(model=MyParams)
 - **Single free-form question** — use A2A `input-required` event
 - **Structured multi-field input** — use `FormRequestExtensionServer` / `FormRequestExtensionSpec`
 
-For full details and field type reference, see [Collect Input with Forms](../agent-integration/forms).
+For full details and field type reference, see [Collect Input with Forms](../sdk/forms).
 
-## Step 6b — Adapt File Inputs
+## Step 7 — Adapt File Inputs
 
 File inputs in the original agent are replaced with form-based uploads — this step extends the form you defined in Step 6. If the original agent reads files from the local filesystem or accepts file paths as arguments, those inputs must be replaced with platform file uploads. **Local filesystem access is not available at runtime.**
 
@@ -446,24 +447,27 @@ Use `form.parse_initial_form(model=...)` with `list[FileInfo] | None` in the Pyd
 Extract file ID from `FileInfo.uri` using `PlatformFileUrl`, then call `await File.get(file_id)`. Guard against both dict and object shapes:
 
 ```python
-from typing import Any
+from kagenti_adk.a2a.extensions.common.form import FileInfo
 from kagenti_adk.platform.file import File
 from kagenti_adk.util.file import PlatformFileUrl
 
 
-async def resolve_file(file_info: Any) -> File:
+async def resolve_file(file_info: FileInfo | dict) -> File:
     # FileInfo may arrive as a dict or object depending on the runtime
     if isinstance(file_info, dict):
         file_uri = file_info.get("uri")
     else:
-        file_uri = getattr(file_info, "uri", None)
+        file_uri = file_info.uri
 
     if not file_uri:
         raise ValueError("Uploaded file is missing URI.")
-    assert isinstance(file_uri, str)
     file_id = PlatformFileUrl(file_uri).file_id
     return await File.get(file_id)
 ```
+
+<Note>
+This `resolve_file` helper is a candidate for future integration into the SDK. Until then, use the snippet above.
+</Note>
 </Step>
 <Step title="Load content">
 Use `file.load_content()` for raw bytes or the extraction pipeline for documents/images.
@@ -516,9 +520,9 @@ For multi-turn agents receiving files during conversation (not via initial form)
 **Do not add `default_input_modes`** unless the agent is intentionally designed to accept `FilePart` uploads directly in chat messages — not just via the initial form. Similarly, do not add `default_output_modes` unless the agent actually yields file artifacts.
 </Warning>
 
-For details, see [Working with Files](../agent-integration/files).
+For details, see [Working with Files](../sdk/files).
 
-## Step 7 — Configuration Variables and Secrets
+## Step 8 — Configuration Variables and Secrets
 
 Map each configuration variable your agent uses to the appropriate platform extension. The mapping rule is straightforward:
 
@@ -533,20 +537,23 @@ Sources to inspect for configuration variables:
 
 | Variable Type | Extension to Use |
 |--------------|-----------------|
-| Third-party API key/token required at runtime (Tavily, SerpAPI, etc.) | **[Secrets](../agent-integration/secrets)** |
-| Deployment/runtime host settings (`HOST`, `PORT`, service URLs, DB strings) | **[Environment Variables](../agent-integration/env-variables)** |
-| User-tunable behavior options (mode, toggle, choice) | **[Settings](../agent-integration/agent-settings)** |
+| Third-party API key/token required at runtime (Tavily, SerpAPI, etc.) | **[Secrets](../sdk/secrets)** |
+| Deployment/runtime host settings (`HOST`, `PORT`, service URLs, DB strings) | **[Environment Variables](../sdk/env-variables)** |
+| User-tunable behavior options (mode, toggle, choice) | **[Settings](../sdk/agent-settings)** |
 
 ### Requesting Secrets
 
 Declare required secrets with the Secrets extension, then check and request them at runtime:
 
 ```python
-from typing import Any
-from kagenti_adk.a2a.extensions.auth.secrets.secrets import SecretsServiceExtensionParams, SecretDemand
+from kagenti_adk.a2a.extensions.auth.secrets.secrets import (
+    SecretsExtensionServer,
+    SecretsServiceExtensionParams,
+    SecretDemand,
+)
 
 
-async def handle_secrets(secrets: Any) -> None:
+async def handle_secrets(secrets: SecretsExtensionServer) -> None:
     api_key = None
 
     if secrets and secrets.data and secrets.data.secret_fulfillments and "API_KEY" in secrets.data.secret_fulfillments:
@@ -589,7 +596,7 @@ Before completing wrapping, confirm:
 - Required credentials are sourced from the Secrets extension and passed explicitly
 - No execution path leaves required API credentials in implicit `os.getenv` / `os.environ` / `dotenv` mode
 
-## Step 8 — Agent Output
+## Step 9 — Agent Output
 
 With inputs and configuration handled, define how the agent surfaces its results.
 
@@ -643,7 +650,7 @@ Use `group_id` to update an existing trajectory step instead of creating a new o
 **Do not call `emit()` on `TrajectoryExtensionServer`.** It does not support `.emit()`. You must `yield trajectory.trajectory_metadata(...)`.
 </Warning>
 
-For details, see [Visualize Agent Trajectories](../agent-integration/trajectory).
+For details, see [Visualize Agent Trajectories](../sdk/trajectory).
 
 ### Artifacts
 
@@ -653,36 +660,36 @@ If the original agent generates files (CSVs, PDFs, images, structured data), ret
 **Never save files to local disk.** Kagenti ADK environments are ephemeral. Generated files should be instantiated in memory and yielded as `AgentArtifact(parts=[file.to_file_part()])`.
 </Warning>
 
-For details, see [Messages and Artifacts](../agent-integration/messages).
+For details, see [Messages and Artifacts](../sdk/messages).
 
-## Step 9 — Platform Extensions
+## Step 10 — Platform Extensions
 
-Steps 4–8 covered the core extensions (LLM, Error, Forms, Files, Secrets, Trajectory). Use this reference for any additional platform capabilities your agent needs, injected via `Annotated` function parameters.
+Steps 4–9 covered the core extensions (LLM, Error, Forms, Files, Secrets, Trajectory). Use this reference for any additional platform capabilities your agent needs, injected via `Annotated` function parameters.
 
 | Extension | Use When | Documentation |
 |-----------|----------|---------------|
-| **LLM Proxy Service** | Agent needs platform-provided LLM access | [LLM Proxy Service](../agent-integration/llm-proxy-service) |
-| **Forms** | Structured named parameter inputs | [Forms](../agent-integration/forms) |
-| **Trajectory** | Multi-step reasoning, tool calls, progress | [Trajectory](../agent-integration/trajectory) |
-| **Files** | Reading user-uploaded files | [Files](../agent-integration/files) |
-| **Error** | Structured user-visible failures | [Error](../agent-integration/error) |
-| **Settings** | Configurable behavior options | [Settings](../agent-integration/agent-settings) |
+| **LLM Proxy Service** | Agent needs platform-provided LLM access | [LLM Proxy Service](../sdk/llm-proxy-service) |
+| **Forms** | Structured named parameter inputs | [Forms](../sdk/forms) |
+| **Trajectory** | Multi-step reasoning, tool calls, progress | [Trajectory](../sdk/trajectory) |
+| **Files** | Reading user-uploaded files | [Files](../sdk/files) |
+| **Error** | Structured user-visible failures | [Error](../sdk/error) |
+| **Settings** | Configurable behavior options | [Settings](../sdk/agent-settings) |
 | **OAuth** | OAuth-protected third-party APIs | OAuth |
-| **MCP** | Model Context Protocol tools | [MCP](../agent-integration/mcp) |
-| **Embedding** | Vector search, RAG | [RAG](../agent-integration/rag) |
-| **Approval** | Sensitive tool calls requiring user consent | [Tool Calls](../agent-integration/tool-calls) |
-| **Secrets** | User-provided API keys/tokens at runtime | [Secrets](../agent-integration/secrets) |
-| **Env Variables** | Deployment-level configuration | [Env Variables](../agent-integration/env-variables) |
-| **Canvas** | Editing user-selected artifacts or code | [Canvas](../agent-integration/canvas) |
-| **Citations** | Referencing documents or external URLs | [Citations](../agent-integration/citations) |
+| **MCP** | Model Context Protocol tools | [MCP](../sdk/mcp) |
+| **Embedding** | Vector search, RAG | [RAG](../sdk/rag) |
+| **Approval** | Sensitive tool calls requiring user consent | [Tool Calls](../sdk/tool-calls) |
+| **Secrets** | User-provided API keys/tokens at runtime | [Secrets](../sdk/secrets) |
+| **Env Variables** | Deployment-level configuration | [Env Variables](../sdk/env-variables) |
+| **Canvas** | Editing user-selected artifacts or code | [Canvas](../sdk/canvas) |
+| **Citations** | Referencing documents or external URLs | [Citations](../sdk/citations) |
 
 <Note>
 Service and UI extensions are optional. Always check presence and data before use (e.g., `if llm and llm.data ...`).
 </Note>
 
-For a complete overview, see [Agent Integration Overview](../agent-integration/overview).
+For a complete overview, see [Agent Integration Overview](../sdk/overview).
 
-## Step 10 — Update README
+## Step 11 — Update README
 
 Update your project's `README.md` with instructions on running the wrapped agent:
 
@@ -698,7 +705,7 @@ Remove any outdated CLI usage examples (e.g., `argparse`-based commands) that no
 Common mistakes to avoid when wrapping an agent:
 
 - **Never access `.text` directly on a `Message` object.** Message content is multipart — always use `get_message_text(input)` from `a2a.utils.message`.
-- **Never use synchronous functions for the agent handler.** Agent functions must be `async def` generators using `yield`.
+{/* - (AI agents) - **Never use synchronous functions for the agent handler.** Agent functions must be `async def` generators using `yield`. */}
 {/* - (AI agents) **Never hide platform wiring behind abstraction layers.** Keep `@server.agent()`, extension parameters, and integration contracts visible in the main entrypoint — do not wrap them behind helper classes. */}
 - **Never assume history is auto-saved.** Explicitly call `await context.store(input)` and `await context.store(response)`.
 - **Never assume persistent history without `PlatformContextStore`.** Without it, context storage is in-memory and lost on restart.
@@ -719,19 +726,19 @@ After wrapping, verify the following before considering the task complete.
 
 ### Code Quality
 
-- [ ] Every `import` resolves to a real, installed module
+{/* - [ ] (AI agents) Every `import` resolves to a real, installed module */}
 - [ ] Agent function has a meaningful docstring (shown in UI)
 - [ ] Agent handler is `async def` and uses `yield` for responses
-- [ ] No `argparse` or `sys.argv` remains
+{/* - [ ] No `argparse` or `sys.argv` remains */}
 {/* - [ ] (AI agents) No business-logic changes unless explicitly approved */}
-- [ ] Temp files created at runtime are cleaned up
+{/* - [ ] Temp files created at runtime are cleaned up */}
 
 ### Extensions and Configuration
 
 - [ ] `yield AgentMessage(text=...)` used for all user-facing responses
 - [ ] No environment variables for API keys or model config — extensions used instead
 - [ ] Required external API credentials obtained via Secrets extension
-- [ ] Every requested secret is actually used in the code
+{/* - [ ] Every requested secret is actually used in the code */}
 - [ ] LLM config passed explicitly from extension, no fallback chains
 - [ ] Optional extensions checked for presence before use
 - [ ] Errors raise exceptions (not yielded as `AgentMessage`)
