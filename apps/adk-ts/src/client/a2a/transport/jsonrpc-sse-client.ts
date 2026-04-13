@@ -3,30 +3,21 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import type { AgentCard, Message, StreamResponse, Task } from '@kagenti/adk';
-import { agentCardSchema, streamResponseSchema } from '@kagenti/adk';
 import { EventSourceParserStream } from 'eventsource-parser/stream';
-import { v4 as uuid } from 'uuid';
 
-export interface A2AClient {
-  getAgentCard(): Promise<AgentCard>;
-  sendMessageStream(params: {
-    message: Message;
-    configuration?: Record<string, unknown>;
-    metadata?: Record<string, unknown>;
-  }): AsyncIterable<StreamResponse>;
-  getTask(params: { id: string }): Promise<Task>;
-  cancelTask(params: { id: string }): Promise<Task>;
+import { streamResponseSchema } from '../protocol/schemas';
+import type { Task } from '../protocol/types';
+import type { A2AClient, CreateA2AClientParams } from './types';
+
+function generateId(): string {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return generateId();
+  }
+  // Fallback for non-secure contexts (e.g. HTTP in browsers)
+  return `${Date.now()}-${Math.random().toString(36).slice(2)}`;
 }
 
-interface CreateClientParams {
-  endpointUrl: string;
-  agentCard: AgentCard;
-  fetchImpl: typeof fetch;
-  extensions?: string[];
-}
-
-export function createA2AClient({ endpointUrl, agentCard, fetchImpl, extensions }: CreateClientParams): A2AClient {
+export function createA2AClient({ endpointUrl, agentCard, fetchImpl, extensions }: CreateA2AClientParams): A2AClient {
   const headers = new Headers({ 'Content-Type': 'application/json' });
 
   if (extensions?.length) {
@@ -39,7 +30,7 @@ export function createA2AClient({ endpointUrl, agentCard, fetchImpl, extensions 
       headers,
       body: JSON.stringify({
         jsonrpc: '2.0',
-        id: uuid(),
+        id: generateId(),
         method,
         params,
       }),
@@ -69,7 +60,7 @@ export function createA2AClient({ endpointUrl, agentCard, fetchImpl, extensions 
         headers,
         body: JSON.stringify({
           jsonrpc: '2.0',
-          id: uuid(),
+          id: generateId(),
           method: 'SendStreamingMessage',
           params,
         }),
@@ -119,15 +110,4 @@ export function createA2AClient({ endpointUrl, agentCard, fetchImpl, extensions 
       return jsonRpcRequest('CancelTask', params) as Promise<Task>;
     },
   };
-}
-
-export async function fetchAgentCard(url: string, fetchImpl: typeof fetch): Promise<AgentCard> {
-  const response = await fetchImpl(url);
-
-  if (!response.ok) {
-    throw new Error(`Failed to fetch agent card: ${response.status} ${response.statusText}`);
-  }
-
-  const data = await response.json();
-  return agentCardSchema.parse(data);
 }

@@ -13,4 +13,5 @@ export * from './handle-agent-card';
 export * from './handle-task-status-update';
 export * from './utils/build-message-builder';
 export * from './utils/extract-text-from-message';
+export * from './utils/get-a2a-endpoint-path';
 export * from './utils/get-agent-card-path';

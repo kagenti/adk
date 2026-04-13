@@ -19,10 +19,14 @@ export async function createContextToken(contextId: string) {
   const result = await api.createContextToken({
     context_id: contextId,
     grant_global_permissions: {
-      a2a_proxy: [PROVIDER_ID],
+      a2a_proxy: ['*'],
+      providers: ['read'],
       llm: ['*'],
+      embeddings: ['*'],
     },
     grant_context_permissions: {
+      files: ['*'],
+      vector_stores: ['*'],
       context_data: ['*'],
     },
   });

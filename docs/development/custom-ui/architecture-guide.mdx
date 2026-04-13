@@ -88,30 +88,36 @@ If your Kagenti ADK server requires user authentication, initialize `buildApiCli
 
 Keep permissions minimal for your use case. See **[Permissions and Tokens](./permissions-and-tokens)** for scope details.
 
-## 3. Create an authenticated A2A client
+## 3. Create an A2A client
 
-Use the context token with `createAuthenticatedFetch`, then pass it to both the transport and card resolver:
+Use `buildAgentClient` to create a configured A2A client with the context token:
 
 ```typescript
-import {
-  ClientFactory,
-  ClientFactoryOptions,
-  DefaultAgentCardResolver,
-  JsonRpcTransportFactory,
-} from "@a2a-js/sdk/client";
-import { createAuthenticatedFetch, getAgentCardPath } from "@kagenti/adk";
+import { buildAgentClient } from "@kagenti/adk";
 
-const fetchImpl = createAuthenticatedFetch(contextToken.token);
+const client = await buildAgentClient({
+  baseUrl: BASE_URL,
+  providerId: PROVIDER_ID,
+  token: contextToken.token,
+});
+```
 
-const factory = new ClientFactory(
-  ClientFactoryOptions.createFrom(ClientFactoryOptions.default, {
-    transports: [new JsonRpcTransportFactory({ fetchImpl })],
-    cardResolver: new DefaultAgentCardResolver({ fetchImpl }),
-  }),
-);
+This handles authenticated fetch, agent card fetching, extension discovery, and JSON-RPC + SSE transport setup in one call.
 
-const agentCardPath = getAgentCardPath(PROVIDER_ID);
-const client = await factory.createFromUrl(BASE_URL, agentCardPath);
+If you need more control (e.g., custom error handling on fetch), use the lower-level helpers:
+
+```typescript
+import { createA2AClient, fetchAgentCard, createAuthenticatedFetch, getAgentCardPath, getA2AEndpointPath } from "@kagenti/adk";
+
+const fetchImpl = createAuthenticatedFetch(contextToken.token, customBaseFetch);
+const agentCard = await fetchAgentCard(`${BASE_URL}/${getAgentCardPath(PROVIDER_ID)}`, fetchImpl);
+
+const client = createA2AClient({
+  endpointUrl: `${BASE_URL}/${getA2AEndpointPath(PROVIDER_ID)}`,
+  agentCard,
+  fetchImpl,
+  extensions: agentCard.capabilities.extensions?.map(({ uri }) => uri),
+});
 ```
 
 ## 4. Resolve agent requirements once per session
@@ -119,29 +125,45 @@ const client = await factory.createFromUrl(BASE_URL, agentCardPath);
 Read the agent card and resolve demand fulfillments before the first message:
 
 ```typescript
-import { buildLLMExtensionFulfillmentResolver, handleAgentCard } from "@kagenti/adk";
+import { handleAgentCard } from "@kagenti/adk";
 
 const agentCard = await client.getAgentCard();
-const { resolveMetadata } = handleAgentCard(agentCard);
+const { resolveMetadata, demands } = handleAgentCard(agentCard);
 
-const llmResolver = buildLLMExtensionFulfillmentResolver(api, contextToken);
-const metadata = await resolveMetadata({ llm: llmResolver });
+const metadata = await resolveMetadata({
+  llm: demands.llmDemands
+    ? async ({ llm_demands }) => ({
+        llm_fulfillments: Object.fromEntries(
+          Object.keys(llm_demands).map((key) => [
+            key,
+            {
+              identifier: "llm_proxy",
+              api_base: "{platform_url}/api/v1/openai/",
+              api_key: contextToken.token,
+              api_model: selectedModels[key],
+            },
+          ]),
+        ),
+      })
+    : undefined,
+});
 ```
 
-This keeps extension fulfillment logic centralized and reusable. See **[Agent Requirements](./agent-requirements)**.
+See **[Agent Requirements](./agent-requirements)** and the **[A2A Client Integration](./a2a-client)** for details on model selection and the LLM proxy pattern.
 
 ## 5. Send messages and process stream events
 
-The example sends a user message and reads streamed output from both `status-update` and `message` events:
+The example sends a user message and reads streamed output. The stream yields `StreamResponse` objects — a union of `{ statusUpdate }`, `{ message }`, `{ artifactUpdate }`, and `{ task }`:
 
 ```typescript
+import { extractTextFromMessage } from "@kagenti/adk";
+
 const stream = client.sendMessageStream({
   message: {
-    kind: "message",
-    role: "user",
     messageId: crypto.randomUUID(),
+    role: "ROLE_USER",
     contextId,
-    parts: [{ kind: "text", text }],
+    parts: [{ text }],
     metadata,
   },
 });
@@ -149,20 +171,24 @@ const stream = client.sendMessageStream({
 let agentText = "";
 
 for await (const event of stream) {
-  if (event.kind === "status-update" || event.kind === "message") {
-    const message = event.kind === "message" ? event : event.status.message;
-    const text = extractTextFromMessage(message);
-
-    if (text) {
-      agentText += text;
+  if ("statusUpdate" in event && event.statusUpdate) {
+    const msg = event.statusUpdate.status?.message;
+    if (msg) {
+      const text = extractTextFromMessage(msg);
+      if (text) agentText = text;
     }
+  }
+
+  if ("message" in event && event.message) {
+    const text = extractTextFromMessage(event.message);
+    if (text) agentText = text;
   }
 }
 ```
 
 This aggregation is intentionally minimal and text-only for readability.
 
-For full handling of `task`, `artifact-update`, cancellation, and failure states, use the patterns in **[A2A Client Integration](./a2a-client)** and **[Error Handling](./error-handling)**.
+For full handling of `task`, `artifactUpdate`, cancellation, and failure states, use the patterns in **[A2A Client Integration](./a2a-client)** and **[Error Handling](./error-handling)**.
 
 ## 6. Extend the basic chat loop for production
 
@@ -219,6 +245,9 @@ Update `.env` with a valid `VITE_ADK_BASE_URL` and `VITE_ADK_PROVIDER_ID` before
 
 - **Provider not found / invalid provider ID errors**
   `VITE_ADK_PROVIDER_ID` must match an existing provider on the target server. Confirm the ID in your Kagenti ADK instance.
+
+- **`No compatible transport found` when using `@a2a-js/sdk` `ClientFactory`**
+  The Kagenti ADK platform proxy serves agent cards without the `url` field that `@a2a-js/sdk` requires for transport negotiation. Use `buildAgentClient` from `@kagenti/adk` instead, which handles the JSON-RPC + SSE transport directly.
 
 - **UI shows little or no useful output even though requests succeed**
   This example intentionally aggregates only text parts. Agents that return files, data parts, citations, forms, or artifacts need additional rendering logic (see **[Agent Responses](./agent-responses)** and **[A2A Client Integration](./a2a-client)**).

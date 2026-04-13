@@ -3,13 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import {
-  ClientFactory,
-  ClientFactoryOptions,
-  DefaultAgentCardResolver,
-  JsonRpcTransportFactory,
-} from '@a2a-js/sdk/client';
-import { type ContextToken, createAuthenticatedFetch, getAgentCardPath } from '@kagenti/adk';
+import { buildAgentClient } from '@kagenti/adk';
 import { useEffect, useState } from 'react';
 
 import { createContext, createContextToken } from './api';
@@ -24,7 +18,11 @@ async function ensureSession() {
 
   const context = await createContext();
   const contextToken = await createContextToken(context.id);
-  const client = await createClient(contextToken);
+  const client = await buildAgentClient({
+    baseUrl: BASE_URL,
+    providerId: PROVIDER_ID,
+    token: contextToken.token,
+  });
   const metadata = await resolveAgentMetadata({ client, contextToken });
 
   return {
@@ -32,22 +30,6 @@ async function ensureSession() {
     contextId: context.id,
     metadata,
   };
-}
-
-async function createClient(contextToken: ContextToken) {
-  const fetchImpl = createAuthenticatedFetch(contextToken.token);
-
-  const factory = new ClientFactory(
-    ClientFactoryOptions.createFrom(ClientFactoryOptions.default, {
-      transports: [new JsonRpcTransportFactory({ fetchImpl })],
-      cardResolver: new DefaultAgentCardResolver({ fetchImpl }),
-    }),
-  );
-
-  const agentCardPath = getAgentCardPath(PROVIDER_ID);
-  const client = await factory.createFromUrl(BASE_URL, agentCardPath);
-
-  return client;
 }
 
 export function useAgent() {
@@ -103,11 +85,10 @@ export function useAgent() {
     const runStream = async () => {
       const stream = client.sendMessageStream({
         message: {
-          kind: 'message',
-          role: 'user',
           messageId: crypto.randomUUID(),
+          role: 'ROLE_USER',
           contextId,
-          parts: [{ kind: 'text', text }],
+          parts: [{ text }],
           metadata,
         },
       });
@@ -115,9 +96,16 @@ export function useAgent() {
       let agentText = '';
 
       for await (const event of stream) {
-        if (event.kind === 'status-update' || event.kind === 'message') {
-          const message = event.kind === 'message' ? event : event.status.message;
-          const text = extractTextFromMessage(message);
+        if ('statusUpdate' in event && event.statusUpdate) {
+          const text = extractTextFromMessage(event.statusUpdate.status?.message);
+
+          if (text) {
+            agentText += text;
+          }
+        }
+
+        if ('message' in event && event.message) {
+          const text = extractTextFromMessage(event.message);
 
           if (text) {
             agentText += text;

@@ -1,0 +1,94 @@
+# Project Setup
+
+Reference for Step 1 of the kagenti-adk-ui skill.
+
+## Official Documentation
+
+Read [Getting Started](https://raw.githubusercontent.com/kagenti/adk/main/docs/stable/custom-ui/getting-started.mdx) before proceeding.
+
+## Detect Existing Project
+
+Before creating anything, check if the target directory already has a project:
+
+1. Look for `package.json`, `tsconfig.json`, framework config files (e.g., `vite.config.ts`, `next.config.js`).
+2. If a project exists, add dependencies to it. Do not create a new project alongside an existing one.
+3. If no project exists, scaffold a new one based on the user's framework preference from Entry Questions.
+
+## Install SDK Dependencies
+
+Add the required SDK packages to the project's existing package manager:
+
+```bash
+npm install @kagenti/adk
+```
+
+### Package Roles
+
+| Package        | Purpose                                                                                                                   |
+| -------------- | ------------------------------------------------------------------------------------------------------------------------- |
+| `@kagenti/adk` | Platform API client, A2A client transport, agent card handling, extension helpers, message utilities, authenticated fetch |
+
+### SDK Entry Points
+
+The `@kagenti/adk` package exposes multiple entry points:
+
+| Import Path               | Contents                                                                                                                                                                                                                                                                                                                |
+| ------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `@kagenti/adk`            | Core client SDK: `buildApiClient`, `buildAgentClient`, `createA2AClient`, `fetchAgentCard`, `handleAgentCard`, `createAuthenticatedFetch`, `unwrapResult`, `extractTextFromMessage`, `buildMessageBuilder`, `handleTaskStatusUpdate`, `resolveUserMetadata`, `buildLLMExtensionFulfillmentResolver`, `getAgentCardPath` |
+| `@kagenti/adk/api`        | Platform API client and types                                                                                                                                                                                                                                                                                           |
+| `@kagenti/adk/core`       | Core utilities, extension types, helpers                                                                                                                                                                                                                                                                                |
+| `@kagenti/adk/extensions` | All A2A extension definitions (service and UI) with their types, schemas, and URIs                                                                                                                                                                                                                                      |
+
+## Environment Variables
+
+The UI needs at minimum two environment variables for the ADK base URL and agent provider ID. The naming convention depends on the framework (e.g., `VITE_` prefix for Vite, `NEXT_PUBLIC_` for Next.js).
+
+Create a `.env.example` file with placeholder values so other developers know what to configure.
+
+See the reference example at [`.env.example`](https://raw.githubusercontent.com/kagenti/adk/main/apps/adk-ts/examples/chat-ui/.env.example) and [`constants.ts`](https://raw.githubusercontent.com/kagenti/adk/main/apps/adk-ts/examples/chat-ui/src/constants.ts) for the pattern.
+
+## TypeScript Configuration
+
+Ensure `tsconfig.json` has strict mode enabled. The SDK relies on proper type narrowing.
+
+### `@kagenti/adk` ships source-only
+
+The `@kagenti/adk` npm package contains TypeScript source files (`src/`) without a compiled `dist/`. Vite and other bundlers handle this transparently at dev time, but `tsc -b` (used in some build scripts) needs type declarations.
+
+**Workarounds:**
+
+1. Add a `paths` mapping in `tsconfig.app.json` to resolve types from source:
+
+   ```json
+   "paths": {
+     "@kagenti/adk": ["./node_modules/@kagenti/adk/src/index.ts"],
+     "@kagenti/adk/core": ["./node_modules/@kagenti/adk/src/core.ts"],
+     "@kagenti/adk/extensions": ["./node_modules/@kagenti/adk/src/extensions.ts"],
+     "@kagenti/adk/api": ["./node_modules/@kagenti/adk/src/api.ts"]
+   }
+   ```
+
+2. The SDK source uses `enum` declarations, so set `"erasableSyntaxOnly": false` in `compilerOptions` (or omit the option, which defaults to false).
+
+3. If `tsc -b` still fails, add a post-install build step:
+
+   ```bash
+   cd node_modules/@kagenti/adk && npx tsup src/index.ts src/api.ts src/core.ts src/extensions.ts --format esm,cjs --outDir dist --no-dts
+   ```
+
+## Project Structure
+
+Follow the file organization pattern in the [chat-ui reference example](https://github.com/kagenti/adk/tree/main/apps/adk-ts/examples/chat-ui/src). Key files to create:
+
+- A constants file for environment variables
+- An API module for platform API client and context helpers
+- A client module for A2A client setup and session management
+- A utilities module for message extraction and metadata resolution
+- Type definitions for local types (session, messages)
+- Main application entry point and UI component(s)
+
+## Anti-Patterns
+
+- Never use `@a2a-js/sdk` `ClientFactory` for custom UIs — use `buildAgentClient` from `@kagenti/adk` instead.
+- Never create both `package.json` and a separate dependency manifest. Use the existing one.
+- Never skip TypeScript strict mode. The SDK relies on proper type narrowing.

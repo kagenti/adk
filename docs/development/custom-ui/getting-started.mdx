@@ -17,7 +17,7 @@ The SDK also exports A2A protocol types and Zod schemas so your UI can stay in s
 ### 1. Install
 
 ```bash
-npm i @kagenti/adk @a2a-js/sdk
+npm i @kagenti/adk
 ```
 
 ### 2. Create the platform API client
@@ -35,6 +35,12 @@ const api = buildApiClient({
 
 `buildApiClient` exposes the platform API with typed responses and runtime validation.
 Use the user access token from your identity provider (OIDC/OAuth) for UI side API calls.
+
+<Tip>
+  **Obtaining the access token**
+
+  For React SPAs, [`react-oidc-context`](https://github.com/authts/react-oidc-context) handles the full OIDC flow including token refresh (`automaticSilentRenew`) and discovery. Wrap your app in `AuthProvider` and use `useAuth()` to get the access token. For non-React apps, implement the Authorization Code + PKCE flow against your identity provider's discovery endpoint.
+</Tip>
 
 <Note>
   **Browser clients require CORS**
@@ -60,6 +66,7 @@ const contextToken = unwrapResult(
       llm: ["*"],
       embeddings: ["*"],
       a2a_proxy: ["*"],
+      providers: ["read"],
     },
     grant_context_permissions: {
       files: ["*"],
@@ -87,52 +94,40 @@ All API calls return `ApiResult<T>`. Use `unwrapResult` if you want exceptions, 
 
 ### 4. Create an A2A client and send a message
 
-Pass the **context token** to the A2A client fetch. Then fetch the agent card, resolve demands, and stream a message.
+Use `buildAgentClient` to create a fully configured A2A client. It handles authenticated fetch, agent card fetching, extension discovery, and JSON-RPC + SSE transport setup.
 For a full walkthrough (status updates, user responses, and cancellation), see **[A2A Client Integration](./a2a-client)**.
 
 ```typescript
-import {
-  ClientFactory,
-  ClientFactoryOptions,
-  DefaultAgentCardResolver,
-  JsonRpcTransportFactory,
-} from "@a2a-js/sdk/client";
-import { createAuthenticatedFetch, getAgentCardPath } from "@kagenti/adk";
+import { buildAgentClient, handleAgentCard } from "@kagenti/adk";
 
-const fetchImpl = createAuthenticatedFetch(contextToken.token);
+const client = await buildAgentClient({
+  baseUrl,
+  providerId,
+  token: contextToken.token,
+});
 
-const factory = new ClientFactory(
-  ClientFactoryOptions.createFrom(ClientFactoryOptions.default, {
-    transports: [new JsonRpcTransportFactory({ fetchImpl })],
-    cardResolver: new DefaultAgentCardResolver({ fetchImpl }),
-  }),
-);
-
-const agentCardPath = getAgentCardPath(providerId);
-const client = await factory.createFromUrl(baseUrl, agentCardPath);
+const agentCard = await client.getAgentCard();
+const { resolveMetadata } = handleAgentCard(agentCard);
+const metadata = await resolveMetadata({});
 
 const stream = client.sendMessageStream({
   message: {
-    kind: "message",
-    role: "user",
     messageId: crypto.randomUUID(),
+    role: "ROLE_USER",
     contextId: context.id,
-    parts: [{ kind: "text", text: "Hello" }],
+    parts: [{ text: "Hello" }],
+    metadata,
   },
 });
 ```
 
-`createAuthenticatedFetch` attaches the `Authorization` header to every request so the A2A client can load the agent card and open JSON RPC streams with authentication.
+`buildAgentClient` uses `createAuthenticatedFetch` internally to attach the `Authorization` header to every request.
 
-The agent card URL follows this convention:
+<Warning>
+  **Do not use `@a2a-js/sdk` `ClientFactory`**
 
-`{baseUrl}/api/v1/a2a/{providerId}/.well-known/agent-card.json`
-
-- `baseUrl` is your Kagenti ADK server root
-- `providerId` is the agent provider identifier
-
-`getAgentCardPath(providerId)` returns the **path portion** of that URL. Use it with `ClientFactory.createFromUrl(baseUrl, agentCardPath)` so the client can resolve the full
-agent card endpoint.
+  The Kagenti ADK platform proxies A2A requests and serves agent cards without the `url` field that `@a2a-js/sdk` requires for transport negotiation. Use `buildAgentClient` (or the lower-level `createA2AClient` + `fetchAgentCard`) instead.
+</Warning>
 
 <Tip>
   **Need UI events and follow up messages?** The **[A2A Client Integration](./a2a-client)** shows how to handle status updates, render forms and approvals, and respond with user metadata.

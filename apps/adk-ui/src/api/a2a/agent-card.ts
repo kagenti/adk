@@ -3,24 +3,19 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { createAuthenticatedFetch, getAgentCardPath } from '@kagenti/adk';
+import type { A2AClient } from '@kagenti/adk';
+import { buildAgentClient } from '@kagenti/adk';
 
 import { UnauthenticatedError } from '#api/errors.ts';
 import { getBaseUrl } from '#utils/api/getBaseUrl.ts';
 
-import { type A2AClient, createA2AClient, fetchAgentCard } from './jsonrpc-client';
-
 export async function getAgentClient(providerId: string, token: string): Promise<A2AClient> {
-  const fetchImpl = createAuthenticatedFetch(token, clientFetch);
-
-  const baseUrl = getBaseUrl();
-  const agentCardUrl = `${baseUrl}/${getAgentCardPath(providerId)}`;
-  const endpointUrl = `${baseUrl}/api/v1/a2a/${providerId}/`;
-
-  const agentCard = await fetchAgentCard(agentCardUrl, fetchImpl);
-  const extensions = agentCard.capabilities.extensions?.map(({ uri }) => uri);
-
-  return createA2AClient({ endpointUrl, agentCard, fetchImpl, extensions });
+  return buildAgentClient({
+    baseUrl: getBaseUrl(),
+    providerId,
+    token,
+    baseFetch: clientFetch,
+  });
 }
 
 async function clientFetch(input: RequestInfo, init?: RequestInit) {

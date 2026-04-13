@@ -22,7 +22,7 @@ extensions, and calling the Kagenti ADK platform API.
 ## Installation
 
 ```bash
-npm install @kagenti/adk @a2a-js/sdk
+npm install @kagenti/adk
 ```
 
 ## Quickstart
@@ -30,21 +30,15 @@ npm install @kagenti/adk @a2a-js/sdk
 ```typescript
 import {
   buildApiClient,
+  buildAgentClient,
   createAuthenticatedFetch,
   unwrapResult,
-  getAgentCardPath,
   handleAgentCard,
   handleTaskStatusUpdate,
   resolveUserMetadata,
-  type TaskStatusUpdateType,
+  TaskStatusUpdateType,
   type Fulfillments,
 } from '@kagenti/adk';
-import {
-  ClientFactory,
-  ClientFactoryOptions,
-  DefaultAgentCardResolver,
-  JsonRpcTransportFactory,
-} from '@a2a-js/sdk/client';
 
 const baseUrl = 'https://your-adk-instance.com'; // or http://adk-api.localtest.me:8080 for local development
 const accessToken = '<user-access-token>';
@@ -65,6 +59,7 @@ const contextToken = unwrapResult(
       llm: ['*'],
       embeddings: ['*'],
       a2a_proxy: ['*'],
+      providers: ['read'],
     },
     grant_context_permissions: {
       files: ['*'],
@@ -74,16 +69,11 @@ const contextToken = unwrapResult(
   }),
 );
 
-const fetchImpl = createAuthenticatedFetch(contextToken.token);
-const factory = new ClientFactory(
-  ClientFactoryOptions.createFrom(ClientFactoryOptions.default, {
-    transports: [new JsonRpcTransportFactory({ fetchImpl })],
-    cardResolver: new DefaultAgentCardResolver({ fetchImpl }),
-  }),
-);
-
-const agentCardPath = getAgentCardPath(providerId);
-const client = await factory.createFromUrl(baseUrl, agentCardPath);
+const client = await buildAgentClient({
+  baseUrl,
+  providerId,
+  token: contextToken.token,
+});
 
 const card = await client.getAgentCard();
 const { resolveMetadata, demands } = handleAgentCard(card);
@@ -98,7 +88,7 @@ const fulfillments: Fulfillments = {
             key,
             {
               identifier: 'llm_proxy',
-              api_base: `${baseUrl}/api/v1/openai/`,
+              api_base: '{platform_url}/api/v1/openai/',
               api_key: contextToken.token,
               api_model: selectedLlmModels[key],
             },
@@ -112,11 +102,10 @@ const agentMetadata = await resolveMetadata(fulfillments);
 
 const stream = client.sendMessageStream({
   message: {
-    kind: 'message',
-    role: 'user',
     messageId: crypto.randomUUID(),
+    role: 'ROLE_USER',
     contextId: context.id,
-    parts: [{ kind: 'text', text: 'Hello' }],
+    parts: [{ text: 'Hello' }],
     metadata: agentMetadata,
   },
 });
@@ -124,29 +113,34 @@ const stream = client.sendMessageStream({
 let taskId: string | undefined;
 
 for await (const event of stream) {
-  switch (event.kind) {
-    case 'task':
-      taskId = event.id;
-    case 'status-update':
-      taskId = event.taskId;
+  if ('task' in event && event.task) {
+    taskId = event.task.id;
+  }
 
-      for (const update of handleTaskStatusUpdate(event)) {
-        switch (update.type) {
-          case TaskStatusUpdateType.FormRequired:
-          // Render form
-          case TaskStatusUpdateType.OAuthRequired:
-          // Redirect to update.url
-          case TaskStatusUpdateType.SecretRequired:
-          // Prompt for secrets
-          case TaskStatusUpdateType.ApprovalRequired:
-          // Request approval
-          case TaskStatusUpdateType.TextInputRequired:
-          // Prompt for text input
-        }
+  if ('statusUpdate' in event && event.statusUpdate) {
+    taskId = event.statusUpdate.taskId;
+
+    for (const update of handleTaskStatusUpdate(event.statusUpdate)) {
+      switch (update.type) {
+        case TaskStatusUpdateType.FormRequired:
+        // Render form
+        case TaskStatusUpdateType.OAuthRequired:
+        // Redirect to update.url
+        case TaskStatusUpdateType.SecretRequired:
+        // Prompt for secrets
+        case TaskStatusUpdateType.ApprovalRequired:
+        // Request approval
+        case TaskStatusUpdateType.TextInputRequired:
+        // Prompt for text input
       }
-    case 'message':
+    }
+  }
+
+  if ('message' in event && event.message) {
     // Render message parts and metadata
-    case 'artifact-update':
+  }
+
+  if ('artifactUpdate' in event && event.artifactUpdate) {
     // Render artifacts
   }
 }
@@ -154,6 +148,7 @@ for await (const event of stream) {
 
 ## Core APIs
 
+- `buildAgentClient` creates a fully configured A2A client with JSON-RPC + SSE transport.
 - `buildApiClient` returns a typed API client for platform endpoints.
 - `handleAgentCard` extracts extension demands and returns `resolveMetadata`.
 - `handleTaskStatusUpdate` parses A2A status updates into UI actions.

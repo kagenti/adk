@@ -53,7 +53,7 @@ overrides:
   "@mintlify/previewing>tar": "6.2.1"
   # Fix GHSA-3x4c-7xq6-9pq8: Next.js unbounded next/image disk cache growth
   # Transitive via docs-site using next@15.x
-  "next@>=10.0.0 <15.5.14": "15.5.14"
+  "@kagenti/docs-site>next@>=10.0.0 <15.5.14": "15.5.14"
 
 packages:
   - apps/adk-ui

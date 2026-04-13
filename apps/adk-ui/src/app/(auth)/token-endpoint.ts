@@ -16,7 +16,13 @@ export async function getTokenEndpoint(issuerUrl: string, clientId: string, clie
 
   try {
     // Perform OIDC discovery
-    const config = await openidClient.discovery(new URL(issuerUrl), clientId, clientSecret);
+    const config = await openidClient.discovery(
+      new URL(issuerUrl),
+      clientId,
+      clientSecret,
+      undefined,
+      issuerUrl.startsWith('http://') ? { execute: [openidClient.allowInsecureRequests] } : undefined,
+    );
     const tokenEndpoint = config.serverMetadata().token_endpoint;
 
     if (!tokenEndpoint) {
