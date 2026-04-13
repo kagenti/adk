@@ -112,9 +112,3 @@ body {
   font-size: 1rem;
   line-height: 1.375;
 }
-
-.login-form {
-  display: grid;
-  gap: 0.5rem;
-  max-inline-size: 20rem;
-}
