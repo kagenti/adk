@@ -11,7 +11,7 @@ import type { A2AClient, CreateA2AClientParams } from './types';
 
 function generateId(): string {
   if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
-    return generateId();
+    return crypto.randomUUID();
   }
   // Fallback for non-secure contexts (e.g. HTTP in browsers)
   return `${Date.now()}-${Math.random().toString(36).slice(2)}`;
