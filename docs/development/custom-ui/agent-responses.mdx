@@ -43,36 +43,30 @@ function processMessageMetadata(message: Message) {
 
 ## Process message parts
 
-Text and file parts are in the `message.parts` array. Map them to your UI components.
+Text and file parts are in the `message.parts` array. Parts are discriminated by the presence of `text`, `url`/`raw`, or `data` keys — there is no `kind` field.
 
 ```typescript
 import { type Part } from "@kagenti/adk";
 
 function processParts(parts: Part[]) {
   return parts.flatMap((part) => {
-    if (part.kind === "text") {
-      return [{
-        kind: "text",
-        text: part.text,
-      }];
+    if ("text" in part) {
+      return [{ type: "text" as const, text: part.text }];
     }
 
-    if (part.kind === "file") {
+    if ("url" in part || "raw" in part) {
       return [
         {
-          kind: "file",
-          filename: part.file.name ?? "file",
-          mimeType: part.file.mimeType ?? "application/octet-stream",
-          url: resolveFileUrl(part.file),
+          type: "file" as const,
+          filename: part.filename ?? "file",
+          mimeType: part.mediaType ?? "application/octet-stream",
+          url: part.url,
         },
       ];
     }
 
-    if (part.kind === "data") {
-      return [{
-        kind: "data",
-        data: part.data,
-      }];
+    if ("data" in part) {
+      return [{ type: "data" as const, data: part.data }];
     }
 
     return [];
