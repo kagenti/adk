@@ -107,9 +107,11 @@ const stream = client.sendMessageStream({
 
 ### 3. Handle streaming updates and show the form
 
-Use `handleTaskStatusUpdate` to detect form requests and capture the task ID so you can continue the same task. Streamed output arrives primarily via `statusUpdate` events; `message` events are the fallback for non-streaming agents.
+Use `handleTaskStatusUpdate` to detect form requests and capture the task ID so you can continue the same task. The stream yields `StreamResponse` objects — a union of `{ statusUpdate }`, `{ message }`, `{ artifactUpdate }`, and `{ task }`. Use `"statusUpdate" in event` checks to discriminate.
 
-The stream yields `StreamResponse` objects — a union of `{ statusUpdate }`, `{ message }`, `{ artifactUpdate }`, and `{ task }`. Use `"statusUpdate" in event` checks to discriminate.
+When the streaming extension is active, incremental output arrives as JSON Patch operations in `statusUpdate.metadata`. Extract and apply these patches to a local draft to reconstruct the message progressively, then update your UI with the draft's parts. When no patches are present (final status update or non-streaming agents), fall back to `statusUpdate.status.message`. A standalone `message` event may also arrive at task completion.
+
+See **[Streaming](../sdk/streaming)** for the full wire format and patch operations.
 
 <Warning>
   **Streaming text must live in persistent state, not a temporary variable**
@@ -119,8 +121,10 @@ The stream yields `StreamResponse` objects — a union of `{ statusUpdate }`, `{
 
 ```typescript
 import { handleTaskStatusUpdate, type TaskStatusUpdateType } from "@kagenti/adk";
+import { extractStreamingPatches, applyPatches } from "@kagenti/adk";
 
 let taskId: string | undefined;
+const draft: Record<string, unknown> = {};
 
 // 1. Add a placeholder agent message to the message list before streaming
 const placeholderId = crypto.randomUUID();
@@ -141,7 +145,15 @@ for await (const event of stream) {
       }
     }
 
-    // 2. Update the placeholder in-place as streaming text arrives
+    // 2. Apply streaming patches to reconstruct the message incrementally
+    const patches = extractStreamingPatches(event.statusUpdate.metadata);
+    if (patches) {
+      applyPatches(draft, patches);
+      updateMessage(placeholderId, { parts: draft.parts ?? [] });
+      continue;
+    }
+
+    // 3. No patches — final status update or non-streaming agent; use status message
     const msg = event.statusUpdate.status?.message;
     if (msg) {
       updateMessage(placeholderId, {
@@ -151,7 +163,7 @@ for await (const event of stream) {
     }
   }
 
-  // 3. If a final message arrives, replace placeholder content (non-streaming agents)
+  // 4. Standalone message (non-streaming agents or final response)
   if ("message" in event && event.message) {
     updateMessage(placeholderId, {
       parts: event.message.parts,
@@ -160,7 +172,7 @@ for await (const event of stream) {
   }
 }
 
-// 4. Mark streaming complete
+// 5. Mark streaming complete
 updateMessage(placeholderId, { isStreaming: false });
 ```
 
@@ -168,8 +180,8 @@ updateMessage(placeholderId, { isStreaming: false });
   **Why task status updates for chat streaming**
 
   1. A2A uses tasks to represent long running work so you can track progress and cancel.
-  2. Status updates provide the incremental channel for UI events and streaming output.
-  3. Each streamed token typically arrives as a `TaskStatusUpdateEvent` in Kagenti ADK, so you can append text as it arrives.
+  2. Status updates carry incremental JSON Patch operations in their metadata, which the client applies to a local draft to reconstruct the message token by token.
+  3. Clients that don't support the streaming extension simply ignore the metadata and render the final complete message at task completion.
 </Tip>
 
 
@@ -225,15 +237,27 @@ Stream the response using the same placeholder pattern from step 3. Handle artif
 
 ```typescript
 const placeholderId = crypto.randomUUID();
+const draft: Record<string, unknown> = {};
 addMessage({ id: placeholderId, role: "agent", parts: [], isStreaming: true });
 
 for await (const event of responseStream) {
-  if ("statusUpdate" in event && event.statusUpdate?.status?.message) {
-    const msg = event.statusUpdate.status.message;
-    updateMessage(placeholderId, {
-      parts: msg.parts,
-      metadata: msg.metadata,
-    });
+  if ("statusUpdate" in event && event.statusUpdate) {
+    // Apply streaming patches when present
+    const patches = extractStreamingPatches(event.statusUpdate.metadata);
+    if (patches) {
+      applyPatches(draft, patches);
+      updateMessage(placeholderId, { parts: draft.parts ?? [] });
+      continue;
+    }
+
+    // Final status update — use status message
+    const msg = event.statusUpdate.status?.message;
+    if (msg) {
+      updateMessage(placeholderId, {
+        parts: msg.parts,
+        metadata: msg.metadata,
+      });
+    }
   }
 
   if ("artifactUpdate" in event && event.artifactUpdate) {
@@ -277,13 +301,13 @@ for await (const event of responseStream) {
 Kagenti ADK’s A2A streaming is task-based. A single `sendMessageStream` call yields `StreamResponse` objects — a union with these shapes:
 
 - `{ task }`: the initial Task object. Capture `task.id`, and use `task.status` (and optional `history`/`artifacts`) to seed your UI state.
-- `{ statusUpdate }`: a task status transition. When the agent is streaming, incremental output is typically delivered via `event.statusUpdate.status.message`.
+- `{ statusUpdate }`: a task status transition. When the streaming extension is active, incremental output is delivered as JSON Patch operations in `event.statusUpdate.metadata`. Extract and apply these patches to a local draft to reconstruct the message progressively. When no patches are present, `event.statusUpdate.status.message` contains the complete status message. See **[Streaming](../sdk/streaming)** for the full wire format.
 - `{ artifactUpdate }`: artifacts as they are generated or updated (useful for streamed files, canvases, or structured outputs).
-- `{ message }`: a standalone Message. This is common for non‑streaming agents and may also appear as a final response.
+- `{ message }`: a standalone Message at task completion. Non‑streaming agents also use this event.
 
 Use `"statusUpdate" in event` to discriminate between shapes.
 
-Key detail for Kagenti ADK streaming: **incremental output usually arrives inside `statusUpdate` events** (`event.statusUpdate.status.message`). If you only render `message` events, you may miss streamed output.
+Key detail for Kagenti ADK streaming: **incremental output arrives as JSON Patch operations inside `statusUpdate` event metadata**, not as full messages. Use `extractStreamingPatches` and `applyPatches` to apply them to a local draft. If you only render `message` events, you will miss streamed output.
 
 ## Handling failed states
 
@@ -321,5 +345,6 @@ For more about error handling, see **[Error Handling](./error-handling)**.
 - **Using `@a2a-js/sdk` `ClientFactory`**: the Kagenti ADK platform proxy serves agent cards without the `url` field that `@a2a-js/sdk` requires. Use `buildAgentClient` from `@kagenti/adk` instead.
 - **Wrong token in A2A requests**: use the *context token* for A2A fetches, not the user access token.
 - **Missing metadata merge**: merge agent card fulfillments with user metadata when you send responses.
-- **Streaming text vanishes**: many agents never emit a `message` event — the entire response arrives via `statusUpdate`. Use the placeholder pattern (see step 3) so accumulated text lives in the message list, not ephemeral state.
+- **Streaming text vanishes**: many agents never emit a `message` event — the entire response arrives as JSON Patch operations in `statusUpdate` metadata. Use the placeholder pattern (see step 3) so accumulated text lives in the message list, not ephemeral state. Extract and apply patches with `extractStreamingPatches` / `applyPatches`.
+- **Ignoring status updates**: streamed agent output arrives as patches inside `statusUpdate` event metadata, not as `message` events. Only render `message` for the final complete response or non-streaming agents.
 - **Node fetch missing**: Node < 18 requires a `fetch` polyfill or custom `fetch` passed to the API client.

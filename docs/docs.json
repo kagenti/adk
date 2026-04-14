@@ -126,6 +126,7 @@
               "development/sdk/overview",
               "development/sdk/building-agents",
               "development/sdk/messages",
+              "development/sdk/streaming",
               "development/sdk/multi-turn",
               "development/sdk/files",
               "development/sdk/agent-details",
