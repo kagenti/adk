@@ -1,5 +1,0 @@
-providers:
-  - location: ghcr.io/kagenti/adk/agents/chat:0.8.2
-  - location: ghcr.io/kagenti/adk/agents/rag:0.8.2
-  - location: ghcr.io/kagenti/adk/agents/canvas:0.8.2
-  - location: ghcr.io/kagenti/adk/agents/form:0.8.2

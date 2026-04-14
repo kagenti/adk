@@ -106,7 +106,6 @@ version=$(
     yq -r .version              apps/adk-ts/package.json
     yq -r .project.version      apps/adk-server/pyproject.toml
     yq -r .version              apps/adk-ui/package.json
-    yq -r '.providers[].location | split(":")[-1]' agent-registry.yaml
   } | sort -u
 )
 if [[ $(wc -l <<<"$version") -ne 1 ]]; then echo "ERROR: Version mismatch detected: $(echo $version)" >&2; exit 1; fi
@@ -414,8 +413,6 @@ done
 for pkg in $(fd -t f -g package.json apps agents); do
   yq -i ".version = \"$usage_version\"" "$pkg"
 done
-yq -i ".providers[].location |= sub(\":(.*)\$\"; \":\" + \"$usage_version\")" agent-registry.yaml
-
 git add .
 git commit --signoff --no-verify -m "bump: v$usage_version"
 set +x

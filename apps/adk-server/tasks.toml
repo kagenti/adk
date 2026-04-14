@@ -376,7 +376,7 @@ eval "$( {{ mise_bin }} run adk:shell --vm-name="$VM_NAME" )"
 if [ -z "${TEST_AGENT_IMAGE:-}" ]; then
     echo "Building test agent..."
     TEST_AGENT_IMAGE=registry.cr-system.svc.cluster.local:5000/chat-test:latest
-    {{ mise_bin }} run adk-cli:run -- build -v "${PWD}/../.." --dockerfile "${PWD}/../../agents/chat/Dockerfile" --tag ${TEST_AGENT_IMAGE} --vm-name=${VM_NAME}
+    {{ mise_bin }} run adk-cli:run -- build -v "${PWD}/../.." --dockerfile "${PWD}/../../agents/adk-support-agent/Dockerfile" --tag ${TEST_AGENT_IMAGE} --vm-name=${VM_NAME}
 fi
 export TEST_AGENT_IMAGE
 

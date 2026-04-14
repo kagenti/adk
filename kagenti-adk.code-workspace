@@ -29,28 +29,8 @@
       "path": "apps/docs-site",
     },
     {
-      "name": "agent-chat",
-      "path": "agents/chat",
-    },
-    {
-      "name": "agent-form",
-      "path": "agents/form",
-    },
-    {
-      "name": "agent-rag",
-      "path": "agents/rag",
-    },
-    {
-      "name": "agent-deepagents-content-builder",
-      "path": "agents/deepagents_content_builder",
-    },
-    {
-      "name": "langgraph-reflection",
-      "path": "agents/langgraph_reflection",
-    },
-    {
-      "name": "agent-canvas",
-      "path": "agents/canvas",
+      "name": "adk-support-agent",
+      "path": "agents/adk-support-agent",
     },
     {
       "name": "examples",
