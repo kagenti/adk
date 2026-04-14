@@ -197,7 +197,7 @@ Use the **Error extension** for user-visible failures. Do not report errors via 
 
 ### Example
 
-See the [official error guide](https://github.com/kagenti/adk/blob/main/docs/stable/agent-integration/error.mdx) and [chat agent example](https://github.com/kagenti/adk/blob/main/agents/chat/src/chat/agent.py) for practical implementation examples.
+See the [official error guide](https://github.com/kagenti/adk/blob/main/docs/stable/agent-integration/error.mdx) and [error examples](https://github.com/kagenti/adk/tree/main/examples/agent-integration/error) for practical implementation examples.
 
 ---
 

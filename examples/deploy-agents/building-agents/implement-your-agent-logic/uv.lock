@@ -525,7 +525,7 @@ wheels = [
 
 [[package]]
 name = "kagenti-adk"
-version = "0.8.1"
+version = "0.8.2"
 source = { editable = "../../../../apps/adk-py" }
 dependencies = [
     { name = "a2a-sdk", extra = ["sqlite"] },

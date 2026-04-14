@@ -34,7 +34,7 @@ Scan the original code for: `open()`, `pathlib.Path.read_*()`, `with open(...)`,
 
 **Important:** The exact calling conventions for `load_content()`, `load_text_content()`, `create_extraction()`, and `get_extraction()` **MUST** be verified by reading the [Working with Files](https://github.com/kagenti/adk/blob/main/docs/stable/agent-integration/files.mdx) documentation before implementation. Do not guess return types, async patterns, or attribute names.
 
-See the [form agent](https://github.com/kagenti/adk/blob/main/agents/form/src/form/agent.py) for `FileField` usage and the [Working with Files](https://github.com/kagenti/adk/blob/main/docs/stable/agent-integration/files.mdx) guide for the full File API.
+See the [file processing example](https://github.com/kagenti/adk/blob/main/examples/agent-integration/files/file-processing/src/file_processing/agent.py) for `FileField` usage and the [Working with Files](https://github.com/kagenti/adk/blob/main/docs/stable/agent-integration/files.mdx) guide for the full File API.
 
 ## Default MIME Type Strategy
 

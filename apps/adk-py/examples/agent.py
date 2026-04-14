@@ -171,7 +171,7 @@ async def serve():
                         - **Customizable Configuration** - Users can enable or disable specific tools for enhanced responses.
                         """
                     ),
-                    documentation_url="https://github.com/kagenti/adk/blob/main/agents/chat",
+                    documentation_url="https://github.com/kagenti/adk/blob/main/examples",
                     url=f"http://{host}:{port}/",
                     version="1.0.0",
                     default_input_modes=["text", "text/plain"],

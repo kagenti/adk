@@ -88,4 +88,9 @@ def create_app(
 
     rest_app.mount("/jsonrpc", jsonrpc_app)
     rest_app.include_router(APIRouter(lifespan=lifespan))
+
+    @rest_app.get("/healthcheck", include_in_schema=False)
+    async def healthcheck():
+        return "OK"
+
     return rest_app

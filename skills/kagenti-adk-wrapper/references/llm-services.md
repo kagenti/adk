@@ -16,7 +16,7 @@ Always pass runtime LLM config explicitly, avoid provider/default fallback chain
 
 ## Examples
 
-See the [chat agent](https://github.com/kagenti/adk/blob/main/agents/chat/src/chat/agent.py) and [competitive-research agent](https://github.com/kagenti/adk/tree/main/agents) on GitHub for real examples of LLM extension wiring.
+See the [LLM access example](https://github.com/kagenti/adk/blob/main/examples/agent-integration/llm-proxy-service/llm-access/src/llm_access/agent.py) on GitHub for a real example of LLM extension wiring.
 
 ## Anti-Patterns
 
