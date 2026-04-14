@@ -3,14 +3,16 @@ title: Agent Responses
 description: Extract and render message parts, citations, trajectories, and artifacts
 ---
 
-Agent responses arrive as A2A messages with parts (text, files) and metadata (citations, trajectories). This guide shows how to extract and render these components in your UI.
+Agent responses arrive as A2A messages with parts (text, files) and metadata (citations, trajectories). This guide shows
+how to extract and render these components in your UI.
 
 ## Process message metadata
 
-Trajectory and citation metadata are stored in message metadata, not in parts. Use the UI extensions to extract them and render UI sections.
+Trajectory and citation metadata are stored in message metadata, not in parts. Use the UI extensions to extract them and
+render UI sections.
 
 ```typescript
-import { citationExtension, extractUiExtensionData, trajectoryExtension, type Message } from "@kagenti/adk";
+import { citationExtension, extractUiExtensionData, trajectoryExtension, type Message } from '@kagenti/adk';
 
 const extractCitation = extractUiExtensionData(citationExtension);
 const extractTrajectory = extractUiExtensionData(trajectoryExtension);
@@ -21,13 +23,13 @@ function processMessageMetadata(message: Message) {
   const citations = extractCitation(message.metadata)?.citations;
 
   if (trajectory) {
-    parts.push({ kind: "trajectory", ...trajectory });
+    parts.push({ kind: 'trajectory', ...trajectory });
   }
 
   if (citations) {
     parts.push(
       ...citations.map((citation) => ({
-        kind: "source",
+        kind: 'source',
         url: citation.url,
         startIndex: citation.start_index ?? undefined,
         endIndex: citation.end_index ?? undefined,
@@ -43,30 +45,31 @@ function processMessageMetadata(message: Message) {
 
 ## Process message parts
 
-Text and file parts are in the `message.parts` array. Parts are discriminated by the presence of `text`, `url`/`raw`, or `data` keys — there is no `kind` field.
+Text and file parts are in the `message.parts` array. Parts are discriminated by the presence of `text`, `url`/`raw`, or
+`data` keys.
 
 ```typescript
-import { type Part } from "@kagenti/adk";
+import { type Part } from '@kagenti/adk';
 
 function processParts(parts: Part[]) {
   return parts.flatMap((part) => {
-    if ("text" in part) {
-      return [{ type: "text" as const, text: part.text }];
+    if ('text' in part) {
+      return [{ type: 'text', text: part.text }];
     }
 
-    if ("url" in part || "raw" in part) {
+    if ('url' in part || 'raw' in part) {
       return [
         {
-          type: "file" as const,
-          filename: part.filename ?? "file",
-          mimeType: part.mediaType ?? "application/octet-stream",
+          type: 'file',
+          filename: part.filename ?? 'file',
+          mimeType: part.mediaType ?? 'application/octet-stream',
           url: part.url,
         },
       ];
     }
 
-    if ("data" in part) {
-      return [{ type: "data" as const, data: part.data }];
+    if ('data' in part) {
+      return [{ type: 'data', data: part.data }];
     }
 
     return [];
@@ -81,18 +84,19 @@ Data parts are structured payloads. Render them as JSON or map them to specializ
 Files can arrive as a platform URL or inline base64 bytes. Convert them to something the UI can render.
 
 ```typescript
-import { type FilePart } from "@kagenti/adk";
+import { type FilePart } from '@kagenti/adk';
 
-function resolveFileUrl(file: FilePart["file"]) {
-  if ("uri" in file) {
+function resolveFileUrl(file: FilePart['file']) {
+  if ('uri' in file) {
     return file.uri;
   }
 
-  const mimeType = file.mimeType ?? "text/plain";
+  const mimeType = file.mimeType ?? 'text/plain';
   return `data:${mimeType};base64,${file.bytes}`;
 }
 ```
 
 ## Artifacts
 
-Artifact updates arrive as `artifact-update` events and contain their own parts. Process them the same way as message parts.
+Artifact updates arrive as `artifact-update` events and contain their own parts. Process them the same way as message
+parts.
