@@ -13,15 +13,19 @@
 !/uv.lock
 
 # Python
-.ruff-cache
-.venv
+**/.ruff-cache
+**/.venv
 
 # Docker
-Dockerfile
-.dockerignore
+**/Dockerfile
+**/.dockerignore
 
 # Node
-node_modules
+**/node_modules
+
+# Next.js
+**/.next
+!apps/adk-ui/.next
 
 # Misc
-dist
+**/dist
