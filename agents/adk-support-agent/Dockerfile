@@ -2,8 +2,7 @@ ARG UV_VERSION=0.11.2
 FROM ghcr.io/astral-sh/uv:${UV_VERSION} AS uv
 FROM python:3.13-slim
 COPY --from=uv /uv /bin/uv
-WORKDIR /app
-COPY . .
-RUN UV_COMPILE_BYTECODE=1 HOME=/tmp uv sync --no-cache --link-mode copy
+COPY . /app/.
+RUN cd /app/agents/adk-support-agent && UV_COMPILE_BYTECODE=1 HOME=/tmp uv sync --no-cache --link-mode copy
 ENV PRODUCTION_MODE=True
-CMD ["/app/.venv/bin/server"]
+CMD ["/app/agents/adk-support-agent/.venv/bin/server"]

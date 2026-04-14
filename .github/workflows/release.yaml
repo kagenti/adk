@@ -102,7 +102,8 @@ jobs:
 
       - uses: docker/build-push-action@d08e5c354a6adb9ed34480a06d141179aa583294 # v7.0.0
         with:
-          context: ./agents/adk-support-agent
+          context: ./
+          file: agents/adk-support-agent/Dockerfile
           push: true
           platforms: linux/amd64,linux/arm64
           tags: |
