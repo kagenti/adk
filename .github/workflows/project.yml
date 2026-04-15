@@ -1,0 +1,22 @@
+name: Kagenti Project Automation
+
+on:
+  issues:
+    types: [opened]
+  pull_request_target:
+    types: [opened]
+
+permissions:
+  contents: read
+
+jobs:
+  add:
+    name: Add item to Kagenti Project
+
+    permissions:
+      issues: write
+      pull-requests: write
+      contents: read
+
+    uses: kagenti/.github/.github/workflows/add-to-project.yml@8ec0d357da0f51a4e4d67b26eb5a9a887604cf6d  # main
+    secrets: inherit
