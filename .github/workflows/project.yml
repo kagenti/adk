@@ -18,7 +18,5 @@ jobs:
       pull-requests: write
       contents: read
 
-    # Pinned to @main intentionally: org-internal workflows propagate updates automatically.
-    uses: kagenti/.github/.github/workflows/add-to-project.yml@main
+    uses: kagenti/.github/.github/workflows/add-to-project.yml@8ec0d357da0f51a4e4d67b26eb5a9a887604cf6d  # main
     secrets: inherit
-
