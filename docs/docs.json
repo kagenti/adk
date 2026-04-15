@@ -117,6 +117,9 @@
           {
             "group": "Get Started",
             "pages": [
+              "development/deploy-agents/wrap-existing-agents",
+              "development/deploy-agents/wrapping-guide",
+              "development/deploy-agents/a2a-agents",
               "development/deploy-agents/deploy-your-agent"
             ]
           },
