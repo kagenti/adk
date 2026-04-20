@@ -69,7 +69,7 @@ The SDK includes extension support for:
 - **Trajectory** - Agent decision logging (`TrajectoryExtensionServer`, `TrajectoryExtensionSpec`)
 - **LLM Services** - Platform-managed language models (`LLMServiceExtensionServer`, `LLMServiceExtensionSpec`)
 - **Agent Details** - Metadata and UI enhancements (`AgentDetail`)
-- **And more** - See [Documentation](https://github.com/kagenti/adk/blob/main/docs/stable/agent-development/overview)
+- **And more** - See [Documentation](https://github.com/kagenti/adk/blob/main/docs/stable/sdk/overview.mdx)
 
 Each extension provides both server-side handlers and A2A protocol specifications for seamless integration with Kagenti ADK's UI and infrastructure.
 
