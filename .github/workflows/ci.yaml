@@ -72,7 +72,7 @@ jobs:
       - name: Set arch
         run: echo "ARCH=$(uname -m | sed -e 's/arm64/aarch64/;s/amd64/x86_64/')" >> $GITHUB_ENV
       - id: cache-check
-        uses: actions/cache@668228422ae6a00e4ad889ee87cd7109ec5666a7
+        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae
         with:
           path: apps/microshift-vm/dist/${{ env.ARCH }}
           key: microshift-vm-dist-v1-${{ runner.os }}-${{ env.ARCH }}-${{ hashFiles('apps/microshift-vm/**') }}

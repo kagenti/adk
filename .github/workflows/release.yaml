@@ -32,7 +32,7 @@ jobs:
           echo "version=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
           echo "latestTag=$([[ ${GITHUB_REF#refs/tags/v} =~ [a-zA-Z] ]] && echo prerelease || echo latest)" >> $GITHUB_OUTPUT
       - run: mise run microshift-vm:build --arch ${{ matrix.arch }}
-      - uses: softprops/action-gh-release@153bb8e04406b158c6c84fc1615b65b24149a1fe # v2
+      - uses: softprops/action-gh-release@b4309332981a82ec1c5618f44dd2e27cc8bfbfda # v2
         with:
           prerelease: ${{ steps.version.outputs.latestTag == 'prerelease' }}
           files: |
@@ -74,7 +74,7 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - run: mise run 'adk-server:build:*'
-      - uses: docker/build-push-action@d08e5c354a6adb9ed34480a06d141179aa583294 # v7.0.0
+      - uses: docker/build-push-action@bcafcacb16a39f128d818304e6c9c0c18556b85f # v7.1.0
         with:
           context: ./apps/adk-server
           push: true
@@ -87,7 +87,7 @@ jobs:
           cache-to: type=registry,ref=ghcr.io/${{ github.repository }}/adk-server:cache,mode=max
 
       - run: mise run 'adk-ui:build:*'
-      - uses: docker/build-push-action@d08e5c354a6adb9ed34480a06d141179aa583294 # v7.0.0
+      - uses: docker/build-push-action@bcafcacb16a39f128d818304e6c9c0c18556b85f # v7.1.0
         with:
           context: .
           file: ./apps/adk-ui/Dockerfile
@@ -100,7 +100,7 @@ jobs:
           cache-from: type=registry,ref=ghcr.io/${{ github.repository }}/adk-ui:cache
           cache-to: type=registry,ref=ghcr.io/${{ github.repository }}/adk-ui:cache,mode=max
 
-      - uses: docker/build-push-action@d08e5c354a6adb9ed34480a06d141179aa583294 # v7.0.0
+      - uses: docker/build-push-action@bcafcacb16a39f128d818304e6c9c0c18556b85f # v7.1.0
         with:
           context: ./
           file: agents/adk-support-agent/Dockerfile
