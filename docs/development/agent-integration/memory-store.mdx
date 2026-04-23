@@ -1,0 +1,159 @@
+---
+title: "Memory Store"
+description: "Give agents durable, cross-session memory backed by a governed knowledge store."
+---
+
+`MemoryStore` is a complement to `ContextStore`. While `ContextStore` replays the current conversation (per-context, ephemeral), `MemoryStore` provides durable knowledge that persists across sessions — things the agent should remember regardless of which conversation is active.
+
+The interface is backend-agnostic. The built-in implementation uses [MemoryHub](https://github.com/redhat-ai-americas/memory-hub), an open-source governed memory service for AI agents.
+
+## Protocol
+
+Two types make up the abstraction:
+
+**`MemoryStore`** — an abstract factory that holds connection configuration and creates per-context instances:
+
+```python
+class MemoryStore(abc.ABC):
+    @abc.abstractmethod
+    async def create(self, context_id: str) -> MemoryStoreInstance: ...
+```
+
+**`MemoryStoreInstance`** — the per-context operations protocol:
+
+```python
+class MemoryStoreInstance(Protocol):
+    async def search(self, query: str, *, scope: str | None = None,
+                     project_id: str | None = None, max_results: int = 10) -> list[MemoryResult]: ...
+    async def write(self, content: str, *, scope: str = "user", weight: float = 0.7,
+                    tags: list[str] | None = None, project_id: str | None = None) -> str: ...
+    async def read(self, memory_id: str) -> MemoryResult | None: ...
+    async def update(self, memory_id: str, content: str) -> None: ...
+    async def delete(self, memory_id: str) -> None: ...
+```
+
+`write()` returns the new `memory_id`, or an empty string if the backend's curation policy rejected the write.
+
+## MemoryHub implementation
+
+Install the optional dependency:
+
+```bash
+pip install kagenti-adk[memoryhub]
+```
+
+Create a store from environment variables:
+
+```python
+from kagenti_adk.server.store.memoryhub_memory_store import MemoryHubMemoryStore
+
+memory_store = MemoryHubMemoryStore.from_env()
+```
+
+### Environment variables
+
+OAuth 2.1 (recommended for production):
+
+| Variable | Description |
+|---|---|
+| `MEMORYHUB_URL` | MemoryHub service URL |
+| `MEMORYHUB_AUTH_URL` | OAuth 2.1 token endpoint |
+| `MEMORYHUB_CLIENT_ID` | OAuth client ID |
+| `MEMORYHUB_CLIENT_SECRET` | OAuth client secret |
+
+API key (dev/testing):
+
+| Variable | Description |
+|---|---|
+| `MEMORYHUB_URL` | MemoryHub service URL |
+| `MEMORYHUB_API_KEY` | Static API key |
+
+When both are present, the API key takes precedence.
+
+## DI integration
+
+ADK's `Depends` mechanism is synchronous but `MemoryStore.create()` is async. `create_memory_dependency()` returns a sync provider that wraps the store in a lazy proxy — the underlying `MemoryStoreInstance` is resolved on the first async method call. See [kagenti/adk#229](https://github.com/kagenti/adk/issues/229) for background.
+
+```python
+from kagenti_adk.server.store.memoryhub_memory_store import (
+    MemoryHubMemoryStore,
+    create_memory_dependency,
+)
+
+memory_store = MemoryHubMemoryStore.from_env()
+memory_dep = create_memory_dependency(memory_store)
+```
+
+Pass the dependency to your agent using `Annotated` + `Depends`:
+
+```python
+from typing import Annotated
+from kagenti_adk.server.dependencies import Depends
+
+@server.agent()
+async def my_agent(
+    input: Message,
+    context: RunContext,
+    memory: Annotated[MemoryHubMemoryStoreInstance, Depends(memory_dep)],
+):
+    ...
+```
+
+## Example
+
+A minimal agent that loads relevant context before responding and saves new facts:
+
+```python
+import os
+from typing import Annotated
+
+from a2a.types import Message
+from kagenti_adk.server import Server
+from kagenti_adk.server.context import RunContext
+from kagenti_adk.server.dependencies import Depends
+from kagenti_adk.server.store.memoryhub_memory_store import (
+    MemoryHubMemoryStore,
+    MemoryHubMemoryStoreInstance,
+    create_memory_dependency,
+)
+
+server = Server()
+memory_store = MemoryHubMemoryStore.from_env()
+memory_dep = create_memory_dependency(memory_store)
+
+
+@server.agent()
+async def memory_agent(
+    input: Message,
+    context: RunContext,
+    memory: Annotated[MemoryHubMemoryStoreInstance, Depends(memory_dep)],
+):
+    query = input.parts[0].text
+
+    # Load relevant memories before processing
+    results = await memory.search(query, max_results=5)
+    context_block = "\n".join(r.content for r in results)
+
+    # ... call LLM with context_block + query ...
+
+    # Persist anything worth remembering
+    await memory.write(
+        "User prefers concise responses",
+        scope="user",
+        weight=0.8,
+    )
+
+    yield f"[recalled {len(results)} memories]\n..."
+
+
+def run():
+    server.run(host=os.getenv("HOST", "127.0.0.1"), port=int(os.getenv("PORT", 8000)))
+
+
+if __name__ == "__main__":
+    run()
+```
+
+<Tip>
+Use `scope="project"` with a `project_id` to share memories across multiple agents working on the same project, rather than scoping them to a single user.
+</Tip>
