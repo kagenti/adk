@@ -1,4 +1,4 @@
-# Copyright 2026 Wes Jackson
+# Copyright 2026 © IBM Corp.
 # SPDX-License-Identifier: Apache-2.0
 
 """MemoryStore backed by MemoryHub (https://github.com/redhat-ai-americas/memory-hub).
@@ -21,12 +21,15 @@ from __future__ import annotations
 
 import logging
 import os
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from kagenti_adk.server.store.memory_store import MemoryResult, MemoryStore, MemoryStoreInstance
 
 if TYPE_CHECKING:
+    from a2a.types import Message
     from memoryhub.client import MemoryHubClient
+
+    from kagenti_adk.server.context import RunContext
 
 logger = logging.getLogger(__name__)
 
@@ -37,7 +40,7 @@ __all__ = [
 ]
 
 
-class MemoryHubMemoryStoreInstance:
+class MemoryHubMemoryStoreInstance(MemoryStoreInstance):
     """Per-context memory operations backed by MemoryHub."""
 
     def __init__(self, context_id: str, client: MemoryHubClient) -> None:
@@ -167,6 +170,12 @@ class MemoryHubMemoryStore(MemoryStore):
             logger.info("MemoryHub client connected to %s", self._url)
         return self._client
 
+    async def close(self) -> None:
+        """Close the underlying MemoryHub client session."""
+        if self._client is not None:
+            await self._client.__aexit__(None, None, None)
+            self._client = None
+
     async def create(self, context_id: str) -> MemoryStoreInstance:
         client = await self._get_client()
         return MemoryHubMemoryStoreInstance(context_id=context_id, client=client)
@@ -191,23 +200,38 @@ class _MemoryProxy:
             self._instance = await self._store.create(self._context_id)
         return self._instance
 
-    async def search(self, query, **kwargs):
+    async def search(
+        self,
+        query: str,
+        *,
+        scope: str | None = None,
+        project_id: str | None = None,
+        max_results: int = 10,
+    ) -> list[MemoryResult]:
         inst = await self._resolve()
-        return await inst.search(query, **kwargs)
+        return await inst.search(query, scope=scope, project_id=project_id, max_results=max_results)
 
-    async def write(self, content, **kwargs):
+    async def write(
+        self,
+        content: str,
+        *,
+        scope: str = "user",
+        weight: float = 0.7,
+        tags: list[str] | None = None,
+        project_id: str | None = None,
+    ) -> str:
         inst = await self._resolve()
-        return await inst.write(content, **kwargs)
+        return await inst.write(content, scope=scope, weight=weight, tags=tags, project_id=project_id)
 
-    async def read(self, memory_id):
+    async def read(self, memory_id: str) -> MemoryResult | None:
         inst = await self._resolve()
         return await inst.read(memory_id)
 
-    async def update(self, memory_id, content):
+    async def update(self, memory_id: str, content: str) -> None:
         inst = await self._resolve()
         return await inst.update(memory_id, content)
 
-    async def delete(self, memory_id):
+    async def delete(self, memory_id: str) -> None:
         inst = await self._resolve()
         return await inst.delete(memory_id)
 
@@ -233,7 +257,7 @@ def create_memory_dependency(store: MemoryHubMemoryStore):
             results = await memory.search("user preferences")
     """
 
-    def provider(message, context, request_context):
+    def provider(message: Message, context: RunContext, request_context: Any) -> _MemoryProxy:
         return _MemoryProxy(store, context.context_id)
 
     return provider

@@ -59,7 +59,7 @@ _memoryhub_stub, _ClientClass, _NotFoundError = _make_memoryhub_stubs()
 _install_stubs(_memoryhub_stub, _memoryhub_stub.client, _memoryhub_stub.exceptions)
 
 # Now it is safe to import the implementation.
-from kagenti_adk.server.store.memoryhub_memory_store import (  # noqa: E402
+from kagenti_adk.server.store.memoryhub_memory_store import (  # noqa: E402, I001
     MemoryHubMemoryStore,
     MemoryHubMemoryStoreInstance,
     _MemoryProxy,
@@ -196,7 +196,7 @@ class TestMemoryHubMemoryStore:
         _ClientClass.return_value = fake_client
 
         with patch("memoryhub.client.MemoryHubClient", _ClientClass):
-            client = await store._get_client()
+            await store._get_client()
 
         _ClientClass.assert_called_once_with(url="http://hub", api_key="my-key")
         assert store._client is fake_client
@@ -213,7 +213,7 @@ class TestMemoryHubMemoryStore:
         _ClientClass.return_value = fake_client
 
         with patch("memoryhub.client.MemoryHubClient", _ClientClass):
-            client = await store._get_client()
+            await store._get_client()
 
         _ClientClass.assert_called_once_with(
             url="http://hub",
@@ -222,6 +222,22 @@ class TestMemoryHubMemoryStore:
             client_secret="csec",
         )
         assert store._client is fake_client
+
+    async def test_close_cleans_up_client(self):
+        store = MemoryHubMemoryStore(url="http://hub", api_key="k")
+        fake_client = _mock_client()
+        store._client = fake_client
+
+        await store.close()
+
+        fake_client.__aexit__.assert_awaited_once_with(None, None, None)
+        assert store._client is None
+
+    async def test_close_noop_when_no_client(self):
+        store = MemoryHubMemoryStore(url="http://hub", api_key="k")
+        assert store._client is None
+        await store.close()  # should not raise
+        assert store._client is None
 
     async def test_get_client_is_cached(self):
         store = MemoryHubMemoryStore(url="http://hub", api_key="k")
