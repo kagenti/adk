@@ -6,37 +6,39 @@
 Wraps the ``memoryhub`` Python SDK to provide governed, cross-session memory
 to ADK agents via the MemoryStore protocol. Requires the ``memoryhub`` extra:
 
-    pip install kagenti-adk[memoryhub]
+    uv add kagenti-adk[memoryhub]
 
-Authentication is configured via environment variables:
-
-    OAuth 2.1 (recommended):
-        MEMORYHUB_URL, MEMORYHUB_AUTH_URL, MEMORYHUB_CLIENT_ID, MEMORYHUB_CLIENT_SECRET
-
-    API key (dev/testing):
-        MEMORYHUB_URL, MEMORYHUB_API_KEY
+The connection is supplied to agents via the MemoryHub A2A service extension
+(``services.memoryhub.MemoryHubExtensionSpec``); the
+:class:`MemoryHubExtensionServer` opens and closes the underlying client as
+part of its ``lifespan`` and exposes per-context store instances via
+:meth:`MemoryHubExtensionServer.store`.
 """
 
 from __future__ import annotations
 
 import logging
-import os
-from typing import TYPE_CHECKING, Any
+from collections.abc import AsyncGenerator
+from contextlib import asynccontextmanager
+from typing import TYPE_CHECKING
 
-from kagenti_adk.server.store.memory_store import MemoryResult, MemoryStore, MemoryStoreInstance
+from memoryhub.client import MemoryHubClient
+from memoryhub.exceptions import NotFoundError
+from typing_extensions import override
+
+from kagenti_adk.a2a.extensions.services.memoryhub import (
+    MemoryHubExtensionServer as _BaseMemoryHubExtensionServer,
+)
+from kagenti_adk.server.store.memory_store import MemoryResult, MemoryStoreInstance
 
 if TYPE_CHECKING:
-    from a2a.types import Message
-    from memoryhub.client import MemoryHubClient
-
-    from kagenti_adk.server.context import RunContext
+    pass
 
 logger = logging.getLogger(__name__)
 
 __all__ = [
-    "MemoryHubMemoryStore",
+    "MemoryHubExtensionServer",
     "MemoryHubMemoryStoreInstance",
-    "create_memory_dependency",
 ]
 
 
@@ -95,8 +97,6 @@ class MemoryHubMemoryStoreInstance(MemoryStoreInstance):
         return result.memory.id
 
     async def read(self, memory_id: str) -> MemoryResult | None:
-        from memoryhub.exceptions import NotFoundError
-
         try:
             m = await self._client.read(memory_id)
         except NotFoundError:
@@ -115,149 +115,75 @@ class MemoryHubMemoryStoreInstance(MemoryStoreInstance):
         await self._client.delete(memory_id)
 
 
-class MemoryHubMemoryStore(MemoryStore):
-    """Factory for MemoryHub-backed memory store instances.
+class MemoryHubExtensionServer(_BaseMemoryHubExtensionServer):
+    """Server-side MemoryHub extension that owns the MemoryHub client lifecycle.
 
-    Holds connection configuration and lazily creates the MemoryHubClient
-    on first use. The client is shared across all instances (contexts)
-    because it manages its own auth token lifecycle.
+    Subclasses the protocol-only base with a ``lifespan()`` that opens the
+    underlying ``memoryhub.client.MemoryHubClient`` from the active
+    :class:`MemoryHubFulfillment` and closes it on exit. Use
+    :meth:`store` to obtain a :class:`MemoryHubMemoryStoreInstance` bound
+    to the request's context.
     """
 
-    def __init__(
-        self,
-        *,
-        url: str | None = None,
-        auth_url: str | None = None,
-        client_id: str | None = None,
-        client_secret: str | None = None,
-        api_key: str | None = None,
-    ) -> None:
-        self._url = url
-        self._auth_url = auth_url
-        self._client_id = client_id
-        self._client_secret = client_secret
-        self._api_key = api_key
-        self._client: MemoryHubClient | None = None
+    _client: MemoryHubClient | None = None
 
-    @classmethod
-    def from_env(cls) -> MemoryHubMemoryStore:
-        """Create from MEMORYHUB_* environment variables."""
-        return cls(
-            url=os.environ.get("MEMORYHUB_URL"),
-            auth_url=os.environ.get("MEMORYHUB_AUTH_URL"),
-            client_id=os.environ.get("MEMORYHUB_CLIENT_ID"),
-            client_secret=os.environ.get("MEMORYHUB_CLIENT_SECRET"),
-            api_key=os.environ.get("MEMORYHUB_API_KEY"),
-        )
+    @asynccontextmanager
+    @override
+    async def lifespan(self) -> AsyncGenerator[None]:
+        fulfillment = self._resolve_fulfillment()
+        if fulfillment is None:
+            # Extension was not fulfilled by the client and no env fallback;
+            # leave _client unset so accidental store() use raises clearly.
+            yield
+            return
 
-    async def _get_client(self) -> MemoryHubClient:
-        if self._client is None:
-            from memoryhub.client import MemoryHubClient
+        if fulfillment.api_key is not None:
+            client = MemoryHubClient(
+                url=fulfillment.url,
+                api_key=fulfillment.api_key.get_secret_value(),
+            )
+        else:
+            client = MemoryHubClient(
+                url=fulfillment.url,
+                auth_url=fulfillment.auth_url,
+                client_id=fulfillment.client_id,
+                client_secret=(
+                    fulfillment.client_secret.get_secret_value()
+                    if fulfillment.client_secret is not None
+                    else None
+                ),
+            )
 
-            if self._api_key:
-                self._client = MemoryHubClient(
-                    url=self._url,
-                    api_key=self._api_key,
-                )
-            else:
-                self._client = MemoryHubClient(
-                    url=self._url,
-                    auth_url=self._auth_url,
-                    client_id=self._client_id,
-                    client_secret=self._client_secret,
-                )
-            await self._client.__aenter__()
-            logger.info("MemoryHub client connected to %s", self._url)
-        return self._client
-
-    async def close(self) -> None:
-        """Close the underlying MemoryHub client session."""
-        if self._client is not None:
-            await self._client.__aexit__(None, None, None)
+        await client.__aenter__()
+        self._client = client
+        logger.info("MemoryHub client connected to %s", fulfillment.url)
+        try:
+            yield
+        finally:
+            await client.__aexit__(None, None, None)
             self._client = None
 
-    async def create(self, context_id: str) -> MemoryStoreInstance:
-        client = await self._get_client()
-        return MemoryHubMemoryStoreInstance(context_id=context_id, client=client)
+    def store(self, context_id: str) -> MemoryHubMemoryStoreInstance:
+        """Return a per-context store instance.
 
+        Must be called inside the extension's ``lifespan`` window — i.e.
+        from agent code that depends on the extension via ``Annotated[...,
+        MemoryHubExtensionSpec.single_demand()]``.
+        """
+        if self._client is None:
+            raise RuntimeError(
+                "MemoryHubExtensionServer.store() called without an active client. "
+                "Either fulfill the extension via A2A metadata or set MEMORYHUB_URL "
+                "and credentials in the environment."
+            )
+        return MemoryHubMemoryStoreInstance(context_id=context_id, client=self._client)
 
-class _MemoryProxy:
-    """Lazy-initializing proxy that resolves the MemoryStoreInstance on first use.
-
-    The ADK's Depends framework calls the dependency callable synchronously and
-    yields the return value. Since MemoryStore.create() is async, we can't call
-    it during dependency resolution. Instead, we return this proxy which lazily
-    awaits create() on the first method call.
-    """
-
-    def __init__(self, store: MemoryHubMemoryStore, context_id: str) -> None:
-        self._store = store
-        self._context_id = context_id
-        self._instance: MemoryHubMemoryStoreInstance | None = None
-
-    async def _resolve(self) -> MemoryHubMemoryStoreInstance:
-        if self._instance is None:
-            self._instance = await self._store.create(self._context_id)
-        return self._instance
-
-    async def search(
-        self,
-        query: str,
-        *,
-        scope: str | None = None,
-        project_id: str | None = None,
-        max_results: int = 10,
-    ) -> list[MemoryResult]:
-        inst = await self._resolve()
-        return await inst.search(query, scope=scope, project_id=project_id, max_results=max_results)
-
-    async def create(
-        self,
-        content: str,
-        *,
-        scope: str = "user",
-        weight: float = 0.7,
-        tags: list[str] | None = None,
-        project_id: str | None = None,
-    ) -> str:
-        inst = await self._resolve()
-        return await inst.create(content, scope=scope, weight=weight, tags=tags, project_id=project_id)
-
-    async def read(self, memory_id: str) -> MemoryResult | None:
-        inst = await self._resolve()
-        return await inst.read(memory_id)
-
-    async def update(self, memory_id: str, content: str) -> None:
-        inst = await self._resolve()
-        return await inst.update(memory_id, content)
-
-    async def delete(self, memory_id: str) -> None:
-        inst = await self._resolve()
-        return await inst.delete(memory_id)
-
-
-def create_memory_dependency(store: MemoryHubMemoryStore):
-    """Create a DI-compatible dependency provider for the ADK Depends pattern.
-
-    Returns a synchronous callable (required by ADK's Depends) that produces
-    a lazy-initializing proxy. The proxy resolves the MemoryStoreInstance
-    on first async method call.
-
-    Usage::
-
-        memory_store = MemoryHubMemoryStore.from_env()
-        memory_dep = create_memory_dependency(memory_store)
-
-        @server.agent()
-        async def my_agent(
-            input: Message,
-            context: RunContext,
-            memory: Annotated[MemoryHubMemoryStoreInstance, Depends(memory_dep)],
-        ):
-            results = await memory.search("user preferences")
-    """
-
-    def provider(message: Message, context: RunContext, request_context: Any) -> _MemoryProxy:
-        return _MemoryProxy(store, context.context_id)
-
-    return provider
+    def _resolve_fulfillment(self):
+        # data() falls back to spec.default if the client did not provide metadata.
+        try:
+            data = self.data
+        except AttributeError:
+            return None
+        if data is None or not data.memoryhub_fulfillments:
+            return None
+        return next(iter(data.memoryhub_fulfillments.values()))

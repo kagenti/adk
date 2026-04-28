@@ -3,72 +3,36 @@
 
 """Unit tests for MemoryStore protocol and MemoryHub implementation.
 
-The memoryhub SDK is an optional dependency, so we patch it at the module
-level before importing the implementation. All tests are async-compatible
-via pytest-asyncio's asyncio_mode = "auto" (set in pyproject.toml).
+The ``memoryhub`` SDK is now a real dev dependency, so we drive the
+underlying ``MemoryHubClient`` calls via mocks rather than stubbing the
+whole module tree. The MemoryHubExtensionServer's ``lifespan()`` is
+exercised by patching ``MemoryHubClient`` to return an ``AsyncMock``.
 """
 
 from __future__ import annotations
 
-import sys
-from types import ModuleType, SimpleNamespace
+from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
+from pydantic import SecretStr
 
+from kagenti_adk.a2a.extensions.services.memoryhub import (
+    MemoryHubExtensionMetadata,
+    MemoryHubExtensionSpec,
+    MemoryHubFulfillment,
+)
 from kagenti_adk.server.store.memory_store import MemoryResult
+from kagenti_adk.server.store.memoryhub_memory_store import (
+    MemoryHubExtensionServer,
+    MemoryHubMemoryStoreInstance,
+)
 
 pytestmark = pytest.mark.unit
 
 
 # ---------------------------------------------------------------------------
-# Helpers — build a fake memoryhub module tree so the implementation can be
-# imported and used without the real SDK installed.
-# ---------------------------------------------------------------------------
-
-
-def _make_memoryhub_stubs() -> tuple[ModuleType, MagicMock]:
-    """Return (memoryhub package stub, MemoryHubClient class mock)."""
-    client_mock = MagicMock()
-
-    memoryhub = ModuleType("memoryhub")
-    memoryhub_client = ModuleType("memoryhub.client")
-    memoryhub_exceptions = ModuleType("memoryhub.exceptions")
-
-    # NotFoundError used in the read() implementation
-    class NotFoundError(Exception):
-        pass
-
-    memoryhub_exceptions.NotFoundError = NotFoundError
-    memoryhub_client.MemoryHubClient = client_mock
-
-    memoryhub.client = memoryhub_client
-    memoryhub.exceptions = memoryhub_exceptions
-
-    return memoryhub, client_mock, NotFoundError
-
-
-def _install_stubs(memoryhub, client_mod, exc_mod):
-    sys.modules.setdefault("memoryhub", memoryhub)
-    sys.modules.setdefault("memoryhub.client", client_mod)
-    sys.modules.setdefault("memoryhub.exceptions", exc_mod)
-
-
-# Build stubs once for the module lifetime.
-_memoryhub_stub, _ClientClass, _NotFoundError = _make_memoryhub_stubs()
-_install_stubs(_memoryhub_stub, _memoryhub_stub.client, _memoryhub_stub.exceptions)
-
-# Now it is safe to import the implementation.
-from kagenti_adk.server.store.memoryhub_memory_store import (  # noqa: E402, I001
-    MemoryHubMemoryStore,
-    MemoryHubMemoryStoreInstance,
-    _MemoryProxy,
-    create_memory_dependency,
-)
-
-
-# ---------------------------------------------------------------------------
-# Factories
+# Helpers
 # ---------------------------------------------------------------------------
 
 
@@ -108,6 +72,10 @@ def _write_result(memory=None, curation=None) -> SimpleNamespace:
     return SimpleNamespace(memory=memory, curation=curation)
 
 
+class _NotFoundError(Exception):
+    """Stand-in matching ``memoryhub.exceptions.NotFoundError``."""
+
+
 # ---------------------------------------------------------------------------
 # MemoryResult model
 # ---------------------------------------------------------------------------
@@ -132,123 +100,6 @@ class TestMemoryResult:
         r = MemoryResult(memory_id="x", content="y", scope="org", weight=0.9, relevance_score=0.85)
         assert r.weight == 0.9
         assert r.relevance_score == 0.85
-
-
-# ---------------------------------------------------------------------------
-# MemoryHubMemoryStore construction and from_env
-# ---------------------------------------------------------------------------
-
-
-class TestMemoryHubMemoryStore:
-    def test_direct_construction_stores_params(self):
-        store = MemoryHubMemoryStore(url="http://hub", api_key="key-123")
-        assert store._url == "http://hub"
-        assert store._api_key == "key-123"
-        assert store._client is None
-
-    def test_from_env_reads_api_key(self, monkeypatch):
-        monkeypatch.setenv("MEMORYHUB_URL", "http://hub.example.com")
-        monkeypatch.setenv("MEMORYHUB_API_KEY", "secret-key")
-        monkeypatch.delenv("MEMORYHUB_AUTH_URL", raising=False)
-        monkeypatch.delenv("MEMORYHUB_CLIENT_ID", raising=False)
-        monkeypatch.delenv("MEMORYHUB_CLIENT_SECRET", raising=False)
-
-        store = MemoryHubMemoryStore.from_env()
-        assert store._url == "http://hub.example.com"
-        assert store._api_key == "secret-key"
-        assert store._auth_url is None
-
-    def test_from_env_reads_oauth_vars(self, monkeypatch):
-        monkeypatch.setenv("MEMORYHUB_URL", "http://hub.example.com")
-        monkeypatch.setenv("MEMORYHUB_AUTH_URL", "http://auth.example.com")
-        monkeypatch.setenv("MEMORYHUB_CLIENT_ID", "client-id")
-        monkeypatch.setenv("MEMORYHUB_CLIENT_SECRET", "client-secret")
-        monkeypatch.delenv("MEMORYHUB_API_KEY", raising=False)
-
-        store = MemoryHubMemoryStore.from_env()
-        assert store._auth_url == "http://auth.example.com"
-        assert store._client_id == "client-id"
-        assert store._client_secret == "client-secret"
-        assert store._api_key is None
-
-    def test_from_env_missing_vars_yields_none(self, monkeypatch):
-        for var in ("MEMORYHUB_URL", "MEMORYHUB_API_KEY", "MEMORYHUB_AUTH_URL",
-                    "MEMORYHUB_CLIENT_ID", "MEMORYHUB_CLIENT_SECRET"):
-            monkeypatch.delenv(var, raising=False)
-
-        store = MemoryHubMemoryStore.from_env()
-        assert store._url is None
-        assert store._api_key is None
-
-    async def test_create_returns_instance(self):
-        store = MemoryHubMemoryStore(url="http://hub", api_key="k")
-        client = _mock_client()
-        store._client = client
-
-        inst = await store.create("ctx-1")
-        assert isinstance(inst, MemoryHubMemoryStoreInstance)
-        assert inst._context_id == "ctx-1"
-        assert inst._client is client
-
-    async def test_get_client_uses_api_key_path(self):
-        store = MemoryHubMemoryStore(url="http://hub", api_key="my-key")
-        fake_client = _mock_client()
-        _ClientClass.return_value = fake_client
-
-        with patch("memoryhub.client.MemoryHubClient", _ClientClass):
-            await store._get_client()
-
-        _ClientClass.assert_called_once_with(url="http://hub", api_key="my-key")
-        assert store._client is fake_client
-
-    async def test_get_client_uses_oauth_path(self):
-        store = MemoryHubMemoryStore(
-            url="http://hub",
-            auth_url="http://auth",
-            client_id="cid",
-            client_secret="csec",
-        )
-        fake_client = _mock_client()
-        _ClientClass.reset_mock()
-        _ClientClass.return_value = fake_client
-
-        with patch("memoryhub.client.MemoryHubClient", _ClientClass):
-            await store._get_client()
-
-        _ClientClass.assert_called_once_with(
-            url="http://hub",
-            auth_url="http://auth",
-            client_id="cid",
-            client_secret="csec",
-        )
-        assert store._client is fake_client
-
-    async def test_close_cleans_up_client(self):
-        store = MemoryHubMemoryStore(url="http://hub", api_key="k")
-        fake_client = _mock_client()
-        store._client = fake_client
-
-        await store.close()
-
-        fake_client.__aexit__.assert_awaited_once_with(None, None, None)
-        assert store._client is None
-
-    async def test_close_noop_when_no_client(self):
-        store = MemoryHubMemoryStore(url="http://hub", api_key="k")
-        assert store._client is None
-        await store.close()  # should not raise
-        assert store._client is None
-
-    async def test_get_client_is_cached(self):
-        store = MemoryHubMemoryStore(url="http://hub", api_key="k")
-        fake_client = _mock_client()
-        store._client = fake_client
-
-        _ClientClass.reset_mock()
-        client = await store._get_client()
-        assert client is fake_client
-        # Pre-populated _client — constructor must not be called again.
-        _ClientClass.assert_not_called()
 
 
 # ---------------------------------------------------------------------------
@@ -279,10 +130,12 @@ class TestMemoryHubMemoryStoreInstance:
             "test query", scope=None, project_id=None, max_results=10
         )
         assert len(results) == 2
-        assert results[0] == MemoryResult(memory_id="m1", content="alpha", scope="user",
-                                          weight=0.8, relevance_score=0.9)
-        assert results[1] == MemoryResult(memory_id="m2", content="beta", scope="project",
-                                          weight=0.6, relevance_score=0.7)
+        assert results[0] == MemoryResult(
+            memory_id="m1", content="alpha", scope="user", weight=0.8, relevance_score=0.9
+        )
+        assert results[1] == MemoryResult(
+            memory_id="m2", content="beta", scope="project", weight=0.6, relevance_score=0.7
+        )
 
     async def test_search_passes_optional_kwargs(self):
         client = _mock_client()
@@ -327,9 +180,7 @@ class TestMemoryHubMemoryStoreInstance:
 
     async def test_create_returns_memory_id(self):
         client = _mock_client()
-        client.write.return_value = _write_result(
-            memory=SimpleNamespace(id="new-id-42")
-        )
+        client.write.return_value = _write_result(memory=SimpleNamespace(id="new-id-42"))
         inst = self._make(client)
 
         memory_id = await inst.create("important fact")
@@ -392,12 +243,17 @@ class TestMemoryHubMemoryStoreInstance:
         )
 
     async def test_read_returns_none_for_not_found(self):
-        client = _mock_client()
-        client.read.side_effect = _NotFoundError("not found")
-        inst = self._make(client)
+        # Patch the NotFoundError in the implementation module to our local class
+        # so the except clause matches our raised exception.
+        from kagenti_adk.server.store import memoryhub_memory_store as impl
 
-        result = await inst.read("missing-id")
-        assert result is None
+        with patch.object(impl, "NotFoundError", _NotFoundError):
+            client = _mock_client()
+            client.read.side_effect = _NotFoundError("not found")
+            inst = self._make(client)
+
+            result = await inst.read("missing-id")
+            assert result is None
 
     async def test_read_empty_content_defaults_to_empty_string(self):
         client = _mock_client()
@@ -445,136 +301,103 @@ class TestMemoryHubMemoryStoreInstance:
 
 
 # ---------------------------------------------------------------------------
-# _MemoryProxy — lazy initialization and method delegation
+# MemoryHubExtensionServer lifecycle
 # ---------------------------------------------------------------------------
 
 
-class TestMemoryProxy:
-    def _make_store_and_proxy(self, client=None) -> tuple[MemoryHubMemoryStore, _MemoryProxy]:
-        store = MemoryHubMemoryStore(url="http://hub", api_key="k")
-        store._client = client or _mock_client()
-        proxy = _MemoryProxy(store=store, context_id="ctx-proxy")
-        return store, proxy
-
-    async def test_instance_is_none_before_first_call(self):
-        _, proxy = self._make_store_and_proxy()
-        assert proxy._instance is None
-
-    async def test_resolve_creates_instance_once(self):
-        _, proxy = self._make_store_and_proxy()
-
-        inst1 = await proxy._resolve()
-        inst2 = await proxy._resolve()
-
-        assert inst1 is inst2
-        assert isinstance(inst1, MemoryHubMemoryStoreInstance)
-
-    async def test_search_delegates_to_instance(self):
-        client = _mock_client()
-        client.search.return_value = _search_result(
-            _memory_obj(id="p1", content="proxy content", scope="user")
+class TestMemoryHubExtensionServerLifespan:
+    def _server_with_default(self, fulfillment: MemoryHubFulfillment) -> MemoryHubExtensionServer:
+        spec = MemoryHubExtensionSpec.single_demand(default=fulfillment)
+        server = MemoryHubExtensionServer(spec)
+        # Activate by simulating a parsed metadata payload.
+        server._metadata_from_client = MemoryHubExtensionMetadata(
+            memoryhub_fulfillments={"default": fulfillment}
         )
-        _, proxy = self._make_store_and_proxy(client)
+        return server
 
-        results = await proxy.search("via proxy")
-        assert len(results) == 1
-        assert results[0].memory_id == "p1"
-
-    async def test_create_delegates_to_instance(self):
-        client = _mock_client()
-        client.write.return_value = _write_result(memory=SimpleNamespace(id="proxy-id"))
-        _, proxy = self._make_store_and_proxy(client)
-
-        memory_id = await proxy.create("proxy create")
-        assert memory_id == "proxy-id"
-
-    async def test_read_delegates_to_instance(self):
-        client = _mock_client()
-        client.read.return_value = _memory_obj(id="r1", content="c", scope="user")
-        _, proxy = self._make_store_and_proxy(client)
-
-        result = await proxy.read("r1")
-        assert result.memory_id == "r1"
-
-    async def test_update_delegates_to_instance(self):
-        client = _mock_client()
-        _, proxy = self._make_store_and_proxy(client)
-
-        await proxy.update("m-1", "updated")
-        client.update.assert_awaited_once_with("m-1", content="updated")
-
-    async def test_delete_delegates_to_instance(self):
-        client = _mock_client()
-        _, proxy = self._make_store_and_proxy(client)
-
-        await proxy.delete("m-del")
-        client.delete.assert_awaited_once_with("m-del")
-
-    async def test_curation_blocked_create_via_proxy(self):
-        client = _mock_client()
-        client.write.return_value = _write_result(
-            memory=None,
-            curation=SimpleNamespace(reason="blocked"),
+    async def test_lifespan_opens_and_closes_api_key_client(self):
+        fulfillment = MemoryHubFulfillment(
+            url="http://hub", api_key=SecretStr("the-key")
         )
-        _, proxy = self._make_store_and_proxy(client)
+        server = self._server_with_default(fulfillment)
+        fake_client = _mock_client()
 
-        memory_id = await proxy.create("blocked content")
-        assert memory_id == ""
+        with patch(
+            "kagenti_adk.server.store.memoryhub_memory_store.MemoryHubClient",
+            return_value=fake_client,
+        ) as ClientCls:
+            async with server.lifespan():
+                # Inside the lifespan, store() should hand back a usable instance.
+                inst = server.store("ctx-1")
+                assert isinstance(inst, MemoryHubMemoryStoreInstance)
+                assert inst._context_id == "ctx-1"
+                assert inst._client is fake_client
+
+            ClientCls.assert_called_once_with(url="http://hub", api_key="the-key")
+            fake_client.__aenter__.assert_awaited_once()
+            fake_client.__aexit__.assert_awaited_once_with(None, None, None)
+
+        # After lifespan exit, store() raises.
+        with pytest.raises(RuntimeError):
+            server.store("ctx-1")
+
+    async def test_lifespan_uses_oauth_path(self):
+        fulfillment = MemoryHubFulfillment(
+            url="http://hub",
+            auth_url="http://auth",
+            client_id="cid",
+            client_secret=SecretStr("csec"),
+        )
+        server = self._server_with_default(fulfillment)
+        fake_client = _mock_client()
+
+        with patch(
+            "kagenti_adk.server.store.memoryhub_memory_store.MemoryHubClient",
+            return_value=fake_client,
+        ) as ClientCls:
+            async with server.lifespan():
+                pass
+
+        ClientCls.assert_called_once_with(
+            url="http://hub",
+            auth_url="http://auth",
+            client_id="cid",
+            client_secret="csec",
+        )
+
+    async def test_lifespan_noop_without_fulfillment(self):
+        spec = MemoryHubExtensionSpec.single_demand()
+        server = MemoryHubExtensionServer(spec)
+        server._is_active = True  # active but no metadata, no default
+
+        with patch(
+            "kagenti_adk.server.store.memoryhub_memory_store.MemoryHubClient"
+        ) as ClientCls:
+            async with server.lifespan():
+                pass
+            ClientCls.assert_not_called()
+
+        # store() outside an active client must raise.
+        with pytest.raises(RuntimeError):
+            server.store("ctx")
+
+    async def test_store_outside_lifespan_raises(self):
+        fulfillment = MemoryHubFulfillment(url="http://hub", api_key=SecretStr("k"))
+        server = self._server_with_default(fulfillment)
+        with pytest.raises(RuntimeError):
+            server.store("ctx-x")
 
 
 # ---------------------------------------------------------------------------
-# create_memory_dependency
+# httpx integration sanity check (verifies the install path stays wired)
 # ---------------------------------------------------------------------------
 
 
-class TestCreateMemoryDependency:
-    def test_returns_callable(self):
-        store = MemoryHubMemoryStore(url="http://hub", api_key="k")
-        dep = create_memory_dependency(store)
-        assert callable(dep)
+class TestMemoryHubClientImportable:
+    def test_real_memoryhub_client_importable(self):
+        # Imports happen at module load; this just asserts they didn't blow up.
+        from memoryhub.client import MemoryHubClient
+        from memoryhub.exceptions import NotFoundError
 
-    def test_provider_returns_proxy(self):
-        store = MemoryHubMemoryStore(url="http://hub", api_key="k")
-        dep = create_memory_dependency(store)
-
-        fake_context = SimpleNamespace(context_id="ctx-dep-1")
-        proxy = dep(message=None, context=fake_context, request_context=None)
-
-        assert isinstance(proxy, _MemoryProxy)
-        assert proxy._store is store
-        assert proxy._context_id == "ctx-dep-1"
-
-    def test_provider_uses_context_id_from_context(self):
-        store = MemoryHubMemoryStore(url="http://hub", api_key="k")
-        dep = create_memory_dependency(store)
-
-        proxy_a = dep(None, SimpleNamespace(context_id="ctx-A"), None)
-        proxy_b = dep(None, SimpleNamespace(context_id="ctx-B"), None)
-
-        assert proxy_a._context_id == "ctx-A"
-        assert proxy_b._context_id == "ctx-B"
-
-    def test_each_call_returns_new_proxy(self):
-        store = MemoryHubMemoryStore(url="http://hub", api_key="k")
-        dep = create_memory_dependency(store)
-
-        ctx = SimpleNamespace(context_id="ctx-same")
-        p1 = dep(None, ctx, None)
-        p2 = dep(None, ctx, None)
-
-        assert p1 is not p2
-
-    async def test_proxy_from_dependency_resolves_correctly(self):
-        store = MemoryHubMemoryStore(url="http://hub", api_key="k")
-        client = _mock_client()
-        store._client = client
-        client.search.return_value = _search_result(
-            _memory_obj(id="dep-m1", content="dep content", scope="user")
-        )
-
-        dep = create_memory_dependency(store)
-        proxy = dep(None, SimpleNamespace(context_id="ctx-resolve"), None)
-
-        results = await proxy.search("dep query")
-        assert len(results) == 1
-        assert results[0].memory_id == "dep-m1"
+        assert MemoryHubClient is not None
+        assert issubclass(NotFoundError, Exception)
