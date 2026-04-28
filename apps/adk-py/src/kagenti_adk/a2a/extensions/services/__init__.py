@@ -7,4 +7,5 @@ from .embedding import *
 from .form import *
 from .llm import *
 from .mcp import *
+from .memoryhub import *
 from .platform import *
