@@ -323,16 +323,16 @@ class TestMemoryHubMemoryStoreInstance:
         results = await inst.search("nothing")
         assert results == []
 
-    # --- write ---
+    # --- create ---
 
-    async def test_write_returns_memory_id(self):
+    async def test_create_returns_memory_id(self):
         client = _mock_client()
         client.write.return_value = _write_result(
             memory=SimpleNamespace(id="new-id-42")
         )
         inst = self._make(client)
 
-        memory_id = await inst.write("important fact")
+        memory_id = await inst.create("important fact")
 
         client.write.assert_awaited_once_with(
             "important fact",
@@ -343,12 +343,12 @@ class TestMemoryHubMemoryStoreInstance:
         )
         assert memory_id == "new-id-42"
 
-    async def test_write_passes_all_params(self):
+    async def test_create_passes_all_params(self):
         client = _mock_client()
         client.write.return_value = _write_result(memory=SimpleNamespace(id="x"))
         inst = self._make(client)
 
-        await inst.write(
+        await inst.create(
             "content",
             scope="project",
             weight=0.9,
@@ -364,7 +364,7 @@ class TestMemoryHubMemoryStoreInstance:
             project_id="proj-1",
         )
 
-    async def test_write_returns_empty_string_when_curation_blocks(self):
+    async def test_create_returns_empty_string_when_curation_blocks(self):
         client = _mock_client()
         client.write.return_value = _write_result(
             memory=None,
@@ -372,7 +372,7 @@ class TestMemoryHubMemoryStoreInstance:
         )
         inst = self._make(client)
 
-        memory_id = await inst.write("duplicate content")
+        memory_id = await inst.create("duplicate content")
         assert memory_id == ""
 
     # --- read ---
@@ -480,12 +480,12 @@ class TestMemoryProxy:
         assert len(results) == 1
         assert results[0].memory_id == "p1"
 
-    async def test_write_delegates_to_instance(self):
+    async def test_create_delegates_to_instance(self):
         client = _mock_client()
         client.write.return_value = _write_result(memory=SimpleNamespace(id="proxy-id"))
         _, proxy = self._make_store_and_proxy(client)
 
-        memory_id = await proxy.write("proxy write")
+        memory_id = await proxy.create("proxy create")
         assert memory_id == "proxy-id"
 
     async def test_read_delegates_to_instance(self):
@@ -510,7 +510,7 @@ class TestMemoryProxy:
         await proxy.delete("m-del")
         client.delete.assert_awaited_once_with("m-del")
 
-    async def test_curation_blocked_write_via_proxy(self):
+    async def test_curation_blocked_create_via_proxy(self):
         client = _mock_client()
         client.write.return_value = _write_result(
             memory=None,
@@ -518,7 +518,7 @@ class TestMemoryProxy:
         )
         _, proxy = self._make_store_and_proxy(client)
 
-        memory_id = await proxy.write("blocked content")
+        memory_id = await proxy.create("blocked content")
         assert memory_id == ""
 
 

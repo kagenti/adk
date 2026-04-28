@@ -72,7 +72,7 @@ class MemoryHubMemoryStoreInstance(MemoryStoreInstance):
             for m in result.results
         ]
 
-    async def write(
+    async def create(
         self,
         content: str,
         *,
@@ -89,8 +89,8 @@ class MemoryHubMemoryStoreInstance(MemoryStoreInstance):
             project_id=project_id,
         )
         if result.memory is None:
-            # Curation gated the write — return empty string to signal no-op
-            logger.warning("MemoryHub curation gated write: %s", result.curation.reason)
+            # Curation gated the create — return empty string to signal no-op
+            logger.warning("MemoryHub curation gated create: %s", result.curation.reason)
             return ""
         return result.memory.id
 
@@ -211,7 +211,7 @@ class _MemoryProxy:
         inst = await self._resolve()
         return await inst.search(query, scope=scope, project_id=project_id, max_results=max_results)
 
-    async def write(
+    async def create(
         self,
         content: str,
         *,
@@ -221,7 +221,7 @@ class _MemoryProxy:
         project_id: str | None = None,
     ) -> str:
         inst = await self._resolve()
-        return await inst.write(content, scope=scope, weight=weight, tags=tags, project_id=project_id)
+        return await inst.create(content, scope=scope, weight=weight, tags=tags, project_id=project_id)
 
     async def read(self, memory_id: str) -> MemoryResult | None:
         inst = await self._resolve()

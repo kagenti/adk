@@ -54,7 +54,7 @@ class MemoryStoreInstance(Protocol):
         max_results: int = 10,
     ) -> list[MemoryResult]: ...
 
-    async def write(
+    async def create(
         self,
         content: str,
         *,
@@ -63,7 +63,7 @@ class MemoryStoreInstance(Protocol):
         tags: list[str] | None = None,
         project_id: str | None = None,
     ) -> str:
-        """Write a memory. Returns the new memory_id."""
+        """Create a new memory. Returns the new memory_id."""
         ...
 
     async def read(self, memory_id: str) -> MemoryResult | None: ...
