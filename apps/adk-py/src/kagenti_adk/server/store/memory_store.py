@@ -18,7 +18,7 @@ from __future__ import annotations
 import abc
 from typing import Protocol
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 __all__ = [
     "MemoryResult",
@@ -28,13 +28,39 @@ __all__ = [
 
 
 class MemoryResult(BaseModel):
-    """A single memory returned from search or read."""
+    """A single memory returned from search or read.
 
-    memory_id: str
-    content: str
-    scope: str
-    weight: float = 0.7
-    relevance_score: float | None = None
+    Field semantics are intentionally backend-agnostic. Concrete backends
+    map their own concepts onto these fields; the MemoryHub backend's
+    mapping is documented inline as a worked example.
+    """
+
+    memory_id: str = Field(
+        description="Backend-assigned identifier for the memory."
+    )
+    content: str = Field(
+        description="The memory's payload. May be a stub for search results."
+    )
+    scope: str = Field(
+        description=(
+            "Visibility/governance domain. Backend-defined; in MemoryHub: "
+            "one of user/project/campaign/organizational/enterprise."
+        )
+    )
+    weight: float = Field(
+        default=0.7,
+        description=(
+            "Priority/curation signal in the range 0.0–1.0. Backends may use "
+            "it for ranking or ignore it."
+        ),
+    )
+    relevance_score: float | None = Field(
+        default=None,
+        description=(
+            "Search relevance score returned by the backend; None for "
+            "non-search results."
+        ),
+    )
 
 
 class MemoryStoreInstance(Protocol):
@@ -43,6 +69,19 @@ class MemoryStoreInstance(Protocol):
     Each method maps to a standard memory lifecycle operation.
     Implementations should raise backend-specific errors for
     authorization failures or validation issues.
+
+    Common keyword arguments share semantics across all methods:
+
+    - ``scope``: Visibility/governance domain. Backend-defined; in
+      MemoryHub: one of user/project/campaign/organizational/enterprise.
+    - ``weight``: Priority/curation signal in the range 0.0–1.0. Backends
+      may use it for ranking or ignore it.
+    - ``tags``: Free-form tags for grouping/filtering. Backend-defined
+      semantics; in MemoryHub: "domains" attached to a memory.
+    - ``project_id``: Optional grouping within a memory store;
+      backend-defined semantics. In MemoryHub: a project with member-based
+      access control. NOT a tenancy boundary — tenancy is established by
+      the backend's auth credentials.
     """
 
     async def search(
@@ -52,7 +91,14 @@ class MemoryStoreInstance(Protocol):
         scope: str | None = None,
         project_id: str | None = None,
         max_results: int = 10,
-    ) -> list[MemoryResult]: ...
+    ) -> list[MemoryResult]:
+        """Search for memories matching ``query``.
+
+        ``scope`` and ``project_id`` filter results; their semantics are
+        backend-defined. See the class docstring for the cross-method
+        conventions.
+        """
+        ...
 
     async def create(
         self,
@@ -63,7 +109,11 @@ class MemoryStoreInstance(Protocol):
         tags: list[str] | None = None,
         project_id: str | None = None,
     ) -> str:
-        """Create a new memory. Returns the new memory_id."""
+        """Create a new memory. Returns the new memory_id.
+
+        ``scope``, ``weight``, ``tags`` and ``project_id`` follow the
+        cross-method conventions documented on the class.
+        """
         ...
 
     async def read(self, memory_id: str) -> MemoryResult | None: ...
