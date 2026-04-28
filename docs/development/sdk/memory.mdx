@@ -11,139 +11,147 @@ The interface is backend-agnostic. The built-in implementation uses [MemoryHub](
 
 Two types make up the abstraction:
 
-**`MemoryStore`** — an abstract factory that holds connection configuration and creates per-context instances:
-
-```python
-class MemoryStore(abc.ABC):
-    @abc.abstractmethod
-    async def create(self, context_id: str) -> MemoryStoreInstance: ...
-```
-
 **`MemoryStoreInstance`** — the per-context operations protocol:
 
 ```python
 class MemoryStoreInstance(Protocol):
     async def search(self, query: str, *, scope: str | None = None,
                      project_id: str | None = None, max_results: int = 10) -> list[MemoryResult]: ...
-    async def write(self, content: str, *, scope: str = "user", weight: float = 0.7,
-                    tags: list[str] | None = None, project_id: str | None = None) -> str: ...
+    async def create(self, content: str, *, scope: str = "user", weight: float = 0.7,
+                     tags: list[str] | None = None, project_id: str | None = None) -> str: ...
     async def read(self, memory_id: str) -> MemoryResult | None: ...
     async def update(self, memory_id: str, content: str) -> None: ...
     async def delete(self, memory_id: str) -> None: ...
 ```
 
-`write()` returns the new `memory_id`, or an empty string if the backend's curation policy rejected the write.
+`create()` returns the new `memory_id`, or an empty string if the backend's curation policy rejected the write. The `scope`, `weight`, `tags` and `project_id` arguments are backend-defined; see the protocol docstrings for the worked MemoryHub mapping.
 
-## MemoryHub implementation
+**`MemoryResult`** — the value type returned from `search()` and `read()`:
 
-Install the optional dependency:
+```python
+class MemoryResult(BaseModel):
+    memory_id: str
+    content: str
+    scope: str
+    weight: float = 0.7
+    relevance_score: float | None = None
+```
+
+## MemoryHub via the A2A service extension
+
+Add the `memoryhub` extra to your project:
 
 ```bash
-pip install kagenti-adk[memoryhub]
+uv add 'kagenti-adk[memoryhub]'
 ```
 
-Create a store from environment variables:
+The MemoryHub backend is wired into agents through an A2A service extension. The agent declares a demand; the calling client supplies a `MemoryHubFulfillment` with a URL and credentials in the request metadata. Inside the agent, the extension exposes a per-context `MemoryHubMemoryStoreInstance`.
 
-```python
-from kagenti_adk.server.store.memoryhub_memory_store import MemoryHubMemoryStore
-
-memory_store = MemoryHubMemoryStore.from_env()
-```
-
-### Environment variables
-
-OAuth 2.1 (recommended for production):
-
-| Variable | Description |
-|---|---|
-| `MEMORYHUB_URL` | MemoryHub service URL |
-| `MEMORYHUB_AUTH_URL` | OAuth 2.1 token endpoint |
-| `MEMORYHUB_CLIENT_ID` | OAuth client ID |
-| `MEMORYHUB_CLIENT_SECRET` | OAuth client secret |
-
-API key (dev/testing):
-
-| Variable | Description |
-|---|---|
-| `MEMORYHUB_URL` | MemoryHub service URL |
-| `MEMORYHUB_API_KEY` | Static API key |
-
-When both are present, the API key takes precedence.
-
-## DI integration
-
-ADK's `Depends` mechanism is synchronous but `MemoryStore.create()` is async. `create_memory_dependency()` returns a sync provider that wraps the store in a lazy proxy — the underlying `MemoryStoreInstance` is resolved on the first async method call. See [kagenti/adk#229](https://github.com/kagenti/adk/issues/229) for background.
-
-```python
-from kagenti_adk.server.store.memoryhub_memory_store import (
-    MemoryHubMemoryStore,
-    create_memory_dependency,
-)
-
-memory_store = MemoryHubMemoryStore.from_env()
-memory_dep = create_memory_dependency(memory_store)
-```
-
-Pass the dependency to your agent using `Annotated` + `Depends`:
+### Server side (the agent)
 
 ```python
 from typing import Annotated
-from kagenti_adk.server.dependencies import Depends
+
+from a2a.types import Message
+from kagenti_adk.a2a.extensions import MemoryHubExtensionSpec
+from kagenti_adk.server import Server
+from kagenti_adk.server.context import RunContext
+from kagenti_adk.server.store.memoryhub_memory_store import MemoryHubExtensionServer
+
+server = Server()
+
 
 @server.agent()
 async def my_agent(
     input: Message,
     context: RunContext,
-    memory: Annotated[MemoryHubMemoryStoreInstance, Depends(memory_dep)],
+    memoryhub: Annotated[MemoryHubExtensionServer, MemoryHubExtensionSpec.single_demand()],
 ):
-    ...
+    store = memoryhub.store(context.context_id)
+    results = await store.search("user preferences")
+    await store.create("User prefers concise responses", scope="user", weight=0.8)
+    yield f"recalled {len(results)} items"
 ```
 
-## Example
-
-A minimal agent that loads relevant context before responding and saves new facts:
+### Client side (calling the agent)
 
 ```python
+from kagenti_adk.a2a.extensions import (
+    MemoryHubExtensionClient,
+    MemoryHubExtensionSpec,
+    MemoryHubFulfillment,
+)
+from pydantic import SecretStr
+
+spec = MemoryHubExtensionSpec.from_agent_card(agent_card)
+metadata = MemoryHubExtensionClient(spec).fulfillment_metadata(
+    memoryhub_fulfillments={
+        "default": MemoryHubFulfillment(
+            url="https://memoryhub.example.com/mcp/",
+            api_key=SecretStr("..."),
+        )
+    }
+)
+# attach metadata to the outgoing A2A message
+```
+
+`MemoryHubFulfillment` accepts either an `api_key` (dev/testing path) or the OAuth 2.1 trio `auth_url` + `client_id` + `client_secret`.
+
+### Server-side environment fallback
+
+When no fulfillment metadata is provided, the extension falls back to environment variables — useful for local development:
+
+| Variable | Description |
+|---|---|
+| `MEMORYHUB_URL` | MemoryHub MCP URL (required) |
+| `MEMORYHUB_API_KEY` | Static API key (one path) |
+| `MEMORYHUB_AUTH_URL` | OAuth 2.1 token endpoint (other path) |
+| `MEMORYHUB_CLIENT_ID` | OAuth client ID |
+| `MEMORYHUB_CLIENT_SECRET` | OAuth client secret |
+
+## Full example
+
+A runnable agent that searches MemoryHub for the user's input, then stores one fact from it:
+
+{/* <!-- embedme examples/agent-integration/memoryhub/memoryhub-recall/src/memoryhub_recall/agent.py --> */}
+```python
+# Copyright 2026 © IBM Corp.
+# SPDX-License-Identifier: Apache-2.0
+
 import os
 from typing import Annotated
 
 from a2a.types import Message
+from a2a.utils.message import get_message_text
+from kagenti_adk.a2a.extensions import (
+    MemoryHubExtensionSpec,
+)
+from kagenti_adk.a2a.types import AgentMessage
 from kagenti_adk.server import Server
 from kagenti_adk.server.context import RunContext
-from kagenti_adk.server.dependencies import Depends
-from kagenti_adk.server.store.memoryhub_memory_store import (
-    MemoryHubMemoryStore,
-    MemoryHubMemoryStoreInstance,
-    create_memory_dependency,
-)
+from kagenti_adk.server.store.memoryhub_memory_store import MemoryHubExtensionServer
 
 server = Server()
-memory_store = MemoryHubMemoryStore.from_env()
-memory_dep = create_memory_dependency(memory_store)
 
 
 @server.agent()
-async def memory_agent(
+async def memoryhub_recall_example(
     input: Message,
     context: RunContext,
-    memory: Annotated[MemoryHubMemoryStoreInstance, Depends(memory_dep)],
+    memoryhub: Annotated[MemoryHubExtensionServer, MemoryHubExtensionSpec.single_demand()],
 ):
-    query = input.parts[0].text
+    """Search MemoryHub for the user's query, then store one fact from the input."""
+    query = get_message_text(input)
+    store = memoryhub.store(context.context_id)
 
-    # Load relevant memories before processing
-    results = await memory.search(query, max_results=5)
-    context_block = "\n".join(r.content for r in results)
-
-    # ... call LLM with context_block + query ...
-
-    # Persist anything worth remembering
-    await memory.write(
-        "User prefers concise responses",
+    results = await store.search(query, max_results=5)
+    await store.create(
+        f"User mentioned: {query}",
         scope="user",
-        weight=0.8,
+        weight=0.7,
     )
 
-    yield f"[recalled {len(results)} memories]\n..."
+    yield AgentMessage(text=f"recalled {len(results)} items, stored 1")
 
 
 def run():
@@ -153,6 +161,8 @@ def run():
 if __name__ == "__main__":
     run()
 ```
+
+The example lives at `examples/agent-integration/memoryhub/memoryhub-recall`.
 
 <Tip>
 Use `scope="project"` with a `project_id` to share memories across multiple agents working on the same project, rather than scoping them to a single user.
