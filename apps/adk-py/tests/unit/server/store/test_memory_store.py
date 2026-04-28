@@ -12,7 +12,7 @@ exercised by patching ``MemoryHubClient`` to return an ``AsyncMock``.
 from __future__ import annotations
 
 from types import SimpleNamespace
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, patch
 
 import pytest
 from pydantic import SecretStr
@@ -325,7 +325,7 @@ class TestMemoryHubExtensionServerLifespan:
         with patch(
             "kagenti_adk.server.store.memoryhub_memory_store.MemoryHubClient",
             return_value=fake_client,
-        ) as ClientCls:
+        ) as client_cls:
             async with server.lifespan():
                 # Inside the lifespan, store() should hand back a usable instance.
                 inst = server.store("ctx-1")
@@ -333,7 +333,7 @@ class TestMemoryHubExtensionServerLifespan:
                 assert inst._context_id == "ctx-1"
                 assert inst._client is fake_client
 
-            ClientCls.assert_called_once_with(url="http://hub", api_key="the-key")
+            client_cls.assert_called_once_with(url="http://hub", api_key="the-key")
             fake_client.__aenter__.assert_awaited_once()
             fake_client.__aexit__.assert_awaited_once_with(None, None, None)
 
@@ -354,11 +354,11 @@ class TestMemoryHubExtensionServerLifespan:
         with patch(
             "kagenti_adk.server.store.memoryhub_memory_store.MemoryHubClient",
             return_value=fake_client,
-        ) as ClientCls:
+        ) as client_cls:
             async with server.lifespan():
                 pass
 
-        ClientCls.assert_called_once_with(
+        client_cls.assert_called_once_with(
             url="http://hub",
             auth_url="http://auth",
             client_id="cid",
@@ -372,10 +372,10 @@ class TestMemoryHubExtensionServerLifespan:
 
         with patch(
             "kagenti_adk.server.store.memoryhub_memory_store.MemoryHubClient"
-        ) as ClientCls:
+        ) as client_cls:
             async with server.lifespan():
                 pass
-            ClientCls.assert_not_called()
+            client_cls.assert_not_called()
 
         # store() outside an active client must raise.
         with pytest.raises(RuntimeError):

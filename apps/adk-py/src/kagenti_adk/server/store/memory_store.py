@@ -50,7 +50,7 @@ class MemoryResult(BaseModel):
     weight: float = Field(
         default=0.7,
         description=(
-            "Priority/curation signal in the range 0.0–1.0. Backends may use "
+            "Priority/curation signal in the range 0.0-1.0. Backends may use "
             "it for ranking or ignore it."
         ),
     )
@@ -74,7 +74,7 @@ class MemoryStoreInstance(Protocol):
 
     - ``scope``: Visibility/governance domain. Backend-defined; in
       MemoryHub: one of user/project/campaign/organizational/enterprise.
-    - ``weight``: Priority/curation signal in the range 0.0–1.0. Backends
+    - ``weight``: Priority/curation signal in the range 0.0-1.0. Backends
       may use it for ranking or ignore it.
     - ``tags``: Free-form tags for grouping/filtering. Backend-defined
       semantics; in MemoryHub: "domains" attached to a memory.
