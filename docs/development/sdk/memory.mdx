@@ -24,7 +24,18 @@ class MemoryStoreInstance(Protocol):
     async def delete(self, memory_id: str) -> None: ...
 ```
 
-`create()` returns the new `memory_id`, or an empty string if the backend's curation policy rejected the write. The `scope`, `weight`, `tags` and `project_id` arguments are backend-defined; see the protocol docstrings for the worked MemoryHub mapping.
+`create()` returns the new `memory_id`, or raises `MemoryRejectionError` if the backend rejected the write. The `scope`, `weight`, `tags` and `project_id` arguments are backend-defined; see the protocol docstrings for the worked MemoryHub mapping.
+
+Handle rejection like this:
+
+```python
+from kagenti_adk.server.store.exceptions import MemoryRejectionError
+
+try:
+    memory_id = await store.create("user prefers dark mode", scope="user")
+except MemoryRejectionError as e:
+    logger.info("Memory rejected: %s", e.reason)
+```
 
 **`MemoryResult`** — the value type returned from `search()` and `read()`:
 

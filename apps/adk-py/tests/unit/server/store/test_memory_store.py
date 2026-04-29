@@ -22,6 +22,7 @@ from kagenti_adk.a2a.extensions.services.memoryhub import (
     MemoryHubExtensionSpec,
     MemoryHubFulfillment,
 )
+from kagenti_adk.server.store.exceptions import MemoryRejectionError
 from kagenti_adk.server.store.memory_store import MemoryResult
 from kagenti_adk.server.store.memoryhub_memory_store import (
     MemoryHubExtensionServer,
@@ -215,7 +216,7 @@ class TestMemoryHubMemoryStoreInstance:
             project_id="proj-1",
         )
 
-    async def test_create_returns_empty_string_when_curation_blocks(self):
+    async def test_create_raises_on_curation_rejection(self):
         client = _mock_client()
         client.write.return_value = _write_result(
             memory=None,
@@ -223,8 +224,9 @@ class TestMemoryHubMemoryStoreInstance:
         )
         inst = self._make(client)
 
-        memory_id = await inst.create("duplicate content")
-        assert memory_id == ""
+        with pytest.raises(MemoryRejectionError) as exc_info:
+            await inst.create("duplicate content")
+        assert exc_info.value.reason == "duplicate detected"
 
     # --- read ---
 

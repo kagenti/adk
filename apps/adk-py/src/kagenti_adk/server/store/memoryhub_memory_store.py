@@ -29,6 +29,7 @@ from typing_extensions import override
 from kagenti_adk.a2a.extensions.services.memoryhub import (
     MemoryHubExtensionServer as _BaseMemoryHubExtensionServer,
 )
+from kagenti_adk.server.store.exceptions import MemoryRejectionError
 from kagenti_adk.server.store.memory_store import MemoryResult, MemoryStoreInstance
 
 if TYPE_CHECKING:
@@ -91,9 +92,7 @@ class MemoryHubMemoryStoreInstance(MemoryStoreInstance):
             project_id=project_id,
         )
         if result.memory is None:
-            # Curation gated the create — return empty string to signal no-op
-            logger.warning("MemoryHub curation gated create: %s", result.curation.reason)
-            return ""
+            raise MemoryRejectionError(result.curation.reason)
         return result.memory.id
 
     async def read(self, memory_id: str) -> MemoryResult | None:

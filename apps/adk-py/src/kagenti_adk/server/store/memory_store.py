@@ -113,6 +113,8 @@ class MemoryStoreInstance(Protocol):
 
         ``scope``, ``weight``, ``tags`` and ``project_id`` follow the
         cross-method conventions documented on the class.
+
+        Implementations may raise to signal that the backend rejected the write.
         """
         ...
 
