@@ -91,6 +91,7 @@ class MemoryHubMemoryStoreInstance(MemoryStoreInstance):
             domains=tags,
             project_id=project_id,
         )
+        # memoryhub.WriteResult.memory is None when the SDK's curation pipeline rejected the write
         if result.memory is None:
             raise MemoryRejectionError(result.curation.reason)
         return result.memory.id
