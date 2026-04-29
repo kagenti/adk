@@ -16,7 +16,7 @@ Trajectory entries are metadata for transparency and observability. They are not
 
 ## Trajectory Implementation
 
-When implementing trajectories, follow the [Trajectory Documentation](https://github.com/kagenti/adk/blob/main/docs/stable/agent-integration/trajectory.mdx) and utilize these patterns:
+When implementing trajectories, follow the [Trajectory Documentation](https://github.com/kagenti/adk/blob/main/docs/stable/sdk/trajectory.mdx) and utilize these patterns:
 
 - **Import**: `from kagenti_adk.a2a.extensions import TrajectoryExtensionServer, TrajectoryExtensionSpec`
 - **Injection**: `trajectory: Annotated[TrajectoryExtensionServer, TrajectoryExtensionSpec()]` as an agent function parameter.
