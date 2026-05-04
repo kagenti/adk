@@ -7,7 +7,7 @@ resolution-markers = [
 ]
 
 [options]
-exclude-newer = "2026-04-20T21:00:29.769605Z"
+exclude-newer = "2026-05-01T12:58:01.299597Z"
 exclude-newer-span = "P3D"
 
 [[package]]
@@ -1463,7 +1463,7 @@ requires-dist = [
     { name = "janus", specifier = ">=2.0.0" },
     { name = "jsonpatch", specifier = ">=1.33" },
     { name = "mcp", specifier = ">=1.12.3" },
-    { name = "memoryhub", marker = "extra == 'memoryhub'", specifier = ">=0.5.0" },
+    { name = "memoryhub", marker = "extra == 'memoryhub'", specifier = ">=0.7.0" },
     { name = "objprint", specifier = ">=0.3.0" },
     { name = "opentelemetry-api", specifier = ">=1.35.0" },
     { name = "opentelemetry-exporter-otlp-proto-http", specifier = ">=1.35.0" },
@@ -1754,7 +1754,7 @@ wheels = [
 
 [[package]]
 name = "memoryhub"
-version = "0.5.1"
+version = "0.7.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "fastmcp" },
@@ -1763,9 +1763,9 @@ dependencies = [
     { name = "pyjwt" },
     { name = "pyyaml" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/0e/09/b1c0426ed7983e53487c4dacb5701ea0412f171c7121fd6a9b8194013682/memoryhub-0.5.1.tar.gz", hash = "sha256:6e4a8596446731e86992ba4ac436b6676668405b9fc6a592ce4c7d2d456cfbe2", size = 37448, upload-time = "2026-04-14T17:15:32.996Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/dc/6e/7fbe781c5f5bdb564c0dfb7bd0ccb285891c45a59f0d80a605dbdb4cc9e3/memoryhub-0.7.0.tar.gz", hash = "sha256:3cf3bea4f186c6bf6c8e3ae306540dbe9578f6c6c752d6cc4287eb60e15e3600", size = 43298, upload-time = "2026-04-29T17:45:35.937Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/a7/1e/7107ec51dc7f43142a51976d77993c690906963f805eca147ab89419499a/memoryhub-0.5.1-py3-none-any.whl", hash = "sha256:f3297bdcc50f52f1c0abc0d00d4252f4c29ea9c26a8dcd3b9fd2858976fd95fa", size = 22209, upload-time = "2026-04-14T17:15:31.74Z" },
+    { url = "https://files.pythonhosted.org/packages/3d/d3/abc4ac35b21899963c5bd075a3e33c339c089cf2159dfa9ffd3106ded85f/memoryhub-0.7.0-py3-none-any.whl", hash = "sha256:e635bc18b88c4420f68aca88c0cb7227a61db5c8aecf735531d61248f25b701d", size = 23970, upload-time = "2026-04-29T17:45:34.773Z" },
 ]
 
 [[package]]
