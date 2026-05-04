@@ -158,7 +158,8 @@ async def memoryhub_recall_example(
     results = await store.search(query, max_results=5)
     await store.create(
         f"User mentioned: {query}",
-        scope="user",
+        scope="project",
+        project_id="kagenti-tests",
         weight=0.7,
     )
 
