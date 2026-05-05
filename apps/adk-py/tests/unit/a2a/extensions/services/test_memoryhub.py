@@ -45,9 +45,7 @@ def _clean_env():
 
 class TestMemoryHubExtensionSpec:
     def test_uri_is_versioned(self):
-        spec = MemoryHubExtensionSpec(
-            params=MemoryHubExtensionParams(memoryhub_demands={})
-        )
+        spec = MemoryHubExtensionSpec(params=MemoryHubExtensionParams(memoryhub_demands={}))
         assert spec.URI == "https://a2a-extensions.adk.kagenti.dev/services/memoryhub/v1"
 
     def test_single_demand_default_name(self):
@@ -56,9 +54,7 @@ class TestMemoryHubExtensionSpec:
         assert spec.params.memoryhub_demands["default"].description is None
 
     def test_single_demand_custom_name_and_description(self):
-        spec = MemoryHubExtensionSpec.single_demand(
-            name="primary", description="cross-session knowledge"
-        )
+        spec = MemoryHubExtensionSpec.single_demand(name="primary", description="cross-session knowledge")
         assert "primary" in spec.params.memoryhub_demands
         assert spec.params.memoryhub_demands["primary"].description == "cross-session knowledge"
 

@@ -103,12 +103,8 @@ class MemoryHubExtensionSpec(BaseExtensionSpec[MemoryHubExtensionParams, MemoryH
         default: MemoryHubFulfillment | None = None,
     ) -> Self:
         return cls(
-            params=MemoryHubExtensionParams(
-                memoryhub_demands={name: MemoryHubDemand(description=description)}
-            ),
-            default=(
-                MemoryHubExtensionMetadata(memoryhub_fulfillments={name: default}) if default else None
-            ),
+            params=MemoryHubExtensionParams(memoryhub_demands={name: MemoryHubDemand(description=description)}),
+            default=(MemoryHubExtensionMetadata(memoryhub_fulfillments={name: default}) if default else None),
         )
 
 
@@ -120,19 +116,15 @@ class MemoryHubExtensionServer(BaseExtensionServer[MemoryHubExtensionSpec, Memor
         if not self._metadata_from_client or not self._metadata_from_client.memoryhub_fulfillments:
             fulfillment = _memoryhub_fulfillment_from_env()
             if fulfillment:
-                self._metadata_from_client = MemoryHubExtensionMetadata(
-                    memoryhub_fulfillments={"default": fulfillment}
-                )
+                self._metadata_from_client = MemoryHubExtensionMetadata(memoryhub_fulfillments={"default": fulfillment})
 
 
 class MemoryHubExtensionClient(BaseExtensionClient[MemoryHubExtensionSpec, NoneType]):
-    def fulfillment_metadata(
-        self, *, memoryhub_fulfillments: dict[str, MemoryHubFulfillment]
-    ) -> dict[str, Any]:
+    def fulfillment_metadata(self, *, memoryhub_fulfillments: dict[str, MemoryHubFulfillment]) -> dict[str, Any]:
         return {
-            self.spec.URI: MemoryHubExtensionMetadata(
-                memoryhub_fulfillments=memoryhub_fulfillments
-            ).model_dump(mode="json", context={REVEAL_SECRETS: True})
+            self.spec.URI: MemoryHubExtensionMetadata(memoryhub_fulfillments=memoryhub_fulfillments).model_dump(
+                mode="json", context={REVEAL_SECRETS: True}
+            )
         }
 
 

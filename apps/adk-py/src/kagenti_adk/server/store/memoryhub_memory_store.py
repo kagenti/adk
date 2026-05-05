@@ -148,9 +148,7 @@ class MemoryHubExtensionServer(_BaseMemoryHubExtensionServer):
                 auth_url=fulfillment.auth_url,
                 client_id=fulfillment.client_id,
                 client_secret=(
-                    fulfillment.client_secret.get_secret_value()
-                    if fulfillment.client_secret is not None
-                    else None
+                    fulfillment.client_secret.get_secret_value() if fulfillment.client_secret is not None else None
                 ),
             )
 

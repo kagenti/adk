@@ -13,10 +13,6 @@ class MemoryRejectionError(RuntimeError):
     """
 
     def __init__(self, reason: str | None = None):
-        msg = (
-            f"Memory store rejected the memory: {reason}"
-            if reason
-            else "Memory store rejected the memory"
-        )
+        msg = f"Memory store rejected the memory: {reason}" if reason else "Memory store rejected the memory"
         super().__init__(msg)
         self.reason = reason

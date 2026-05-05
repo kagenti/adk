@@ -127,9 +127,7 @@ class TestMemoryHubMemoryStoreInstance:
 
         results = await inst.search("test query")
 
-        client.search.assert_awaited_once_with(
-            "test query", scope=None, project_id=None, max_results=10
-        )
+        client.search.assert_awaited_once_with("test query", scope=None, project_id=None, max_results=10)
         assert len(results) == 2
         assert results[0] == MemoryResult(
             memory_id="m1", content="alpha", scope="user", weight=0.8, relevance_score=0.9
@@ -145,15 +143,11 @@ class TestMemoryHubMemoryStoreInstance:
 
         await inst.search("q", scope="project", project_id="proj-1", max_results=5)
 
-        client.search.assert_awaited_once_with(
-            "q", scope="project", project_id="proj-1", max_results=5
-        )
+        client.search.assert_awaited_once_with("q", scope="project", project_id="proj-1", max_results=5)
 
     async def test_search_falls_back_to_stub_when_content_none(self):
         client = _mock_client()
-        client.search.return_value = _search_result(
-            _memory_obj(id="m1", content=None, stub="stub text", scope="user")
-        )
+        client.search.return_value = _search_result(_memory_obj(id="m1", content=None, stub="stub text", scope="user"))
         inst = self._make(client)
 
         results = await inst.search("q")
@@ -161,9 +155,7 @@ class TestMemoryHubMemoryStoreInstance:
 
     async def test_search_empty_string_when_both_none(self):
         client = _mock_client()
-        client.search.return_value = _search_result(
-            _memory_obj(id="m1", content=None, stub=None, scope="user")
-        )
+        client.search.return_value = _search_result(_memory_obj(id="m1", content=None, stub=None, scope="user"))
         inst = self._make(client)
 
         results = await inst.search("q")
@@ -232,17 +224,13 @@ class TestMemoryHubMemoryStoreInstance:
 
     async def test_read_returns_memory_result(self):
         client = _mock_client()
-        client.read.return_value = _memory_obj(
-            id="m-read", content="stored fact", scope="user", weight=0.8
-        )
+        client.read.return_value = _memory_obj(id="m-read", content="stored fact", scope="user", weight=0.8)
         inst = self._make(client)
 
         result = await inst.read("m-read")
 
         client.read.assert_awaited_once_with("m-read")
-        assert result == MemoryResult(
-            memory_id="m-read", content="stored fact", scope="user", weight=0.8
-        )
+        assert result == MemoryResult(memory_id="m-read", content="stored fact", scope="user", weight=0.8)
 
     async def test_read_returns_none_for_not_found(self):
         # Patch the NotFoundError in the implementation module to our local class
@@ -312,15 +300,11 @@ class TestMemoryHubExtensionServerLifespan:
         spec = MemoryHubExtensionSpec.single_demand(default=fulfillment)
         server = MemoryHubExtensionServer(spec)
         # Activate by simulating a parsed metadata payload.
-        server._metadata_from_client = MemoryHubExtensionMetadata(
-            memoryhub_fulfillments={"default": fulfillment}
-        )
+        server._metadata_from_client = MemoryHubExtensionMetadata(memoryhub_fulfillments={"default": fulfillment})
         return server
 
     async def test_lifespan_opens_and_closes_api_key_client(self):
-        fulfillment = MemoryHubFulfillment(
-            url="http://hub", api_key=SecretStr("the-key")
-        )
+        fulfillment = MemoryHubFulfillment(url="http://hub", api_key=SecretStr("the-key"))
         server = self._server_with_default(fulfillment)
         fake_client = _mock_client()
 
@@ -372,9 +356,7 @@ class TestMemoryHubExtensionServerLifespan:
         server = MemoryHubExtensionServer(spec)
         server._is_active = True  # active but no metadata, no default
 
-        with patch(
-            "kagenti_adk.server.store.memoryhub_memory_store.MemoryHubClient"
-        ) as client_cls:
+        with patch("kagenti_adk.server.store.memoryhub_memory_store.MemoryHubClient") as client_cls:
             async with server.lifespan():
                 pass
             client_cls.assert_not_called()

@@ -35,12 +35,8 @@ class MemoryResult(BaseModel):
     mapping is documented inline as a worked example.
     """
 
-    memory_id: str = Field(
-        description="Backend-assigned identifier for the memory."
-    )
-    content: str = Field(
-        description="The memory's payload. May be a stub for search results."
-    )
+    memory_id: str = Field(description="Backend-assigned identifier for the memory.")
+    content: str = Field(description="The memory's payload. May be a stub for search results.")
     scope: str = Field(
         description=(
             "Visibility/governance domain. Backend-defined; in MemoryHub: "
@@ -49,17 +45,11 @@ class MemoryResult(BaseModel):
     )
     weight: float = Field(
         default=0.7,
-        description=(
-            "Priority/curation signal in the range 0.0-1.0. Backends may use "
-            "it for ranking or ignore it."
-        ),
+        description=("Priority/curation signal in the range 0.0-1.0. Backends may use it for ranking or ignore it."),
     )
     relevance_score: float | None = Field(
         default=None,
-        description=(
-            "Search relevance score returned by the backend; None for "
-            "non-search results."
-        ),
+        description=("Search relevance score returned by the backend; None for non-search results."),
     )
 
 
