@@ -3,7 +3,7 @@ revision = 3
 requires-python = "==3.14.*"
 
 [options]
-exclude-newer = "2026-04-10T07:48:38.345321368Z"
+exclude-newer = "2026-05-02T12:09:21.660063Z"
 exclude-newer-span = "P3D"
 
 [options.exclude-newer-package]
@@ -1320,6 +1320,7 @@ requires-dist = [
     { name = "janus", specifier = ">=2.0.0" },
     { name = "jsonpatch", specifier = ">=1.33" },
     { name = "mcp", specifier = ">=1.12.3" },
+    { name = "memoryhub", marker = "extra == 'memoryhub'", specifier = ">=0.7.0" },
     { name = "objprint", specifier = ">=0.3.0" },
     { name = "opentelemetry-api", specifier = ">=1.35.0" },
     { name = "opentelemetry-exporter-otlp-proto-http", specifier = ">=1.35.0" },
@@ -1333,6 +1334,7 @@ requires-dist = [
     { name = "typing-extensions", specifier = ">=4.15.0" },
     { name = "uvicorn", specifier = ">=0.37.0,<0.43.0" },
 ]
+provides-extras = ["memoryhub"]
 
 [package.metadata.requires-dev]
 dev = [
