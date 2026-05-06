@@ -29,12 +29,19 @@ class MemoryStoreInstance(Protocol):
 Handle rejection like this:
 
 ```python
-from kagenti_adk.server.store.exceptions import MemoryRejectionError
+import logging
 
-try:
-    memory_id = await store.create("user prefers dark mode", scope="user")
-except MemoryRejectionError as e:
-    logger.info("Memory rejected: %s", e.reason)
+from kagenti_adk.server.store.exceptions import MemoryRejectionError
+from kagenti_adk.server.store.memory_store import MemoryStoreInstance
+
+logger = logging.getLogger(__name__)
+
+
+async def store_user_preference(store: MemoryStoreInstance) -> None:
+    try:
+        memory_id = await store.create("user prefers dark mode", scope="user")
+    except MemoryRejectionError as e:
+        logger.info("Memory rejected: %s", e.reason)
 ```
 
 **`MemoryResult`** — the value type returned from `search()` and `read()`:
@@ -87,6 +94,7 @@ async def my_agent(
 ### Client side (calling the agent)
 
 ```python
+from a2a.types import AgentCard
 from kagenti_adk.a2a.extensions import (
     MemoryHubExtensionClient,
     MemoryHubExtensionSpec,
@@ -94,16 +102,22 @@ from kagenti_adk.a2a.extensions import (
 )
 from pydantic import SecretStr
 
-spec = MemoryHubExtensionSpec.from_agent_card(agent_card)
-metadata = MemoryHubExtensionClient(spec).fulfillment_metadata(
-    memoryhub_fulfillments={
-        "default": MemoryHubFulfillment(
-            url="https://memoryhub.example.com/mcp/",
-            api_key=SecretStr("..."),
-        )
-    }
-)
-# attach metadata to the outgoing A2A message
+
+def memoryhub_metadata(agent_card: AgentCard):
+    spec = MemoryHubExtensionSpec.from_agent_card(agent_card)
+    if spec is None:
+        raise RuntimeError("agent does not advertise the memoryhub extension")
+    return MemoryHubExtensionClient(spec).fulfillment_metadata(
+        memoryhub_fulfillments={
+            "default": MemoryHubFulfillment(
+                url="https://memoryhub.example.com/mcp/",
+                api_key=SecretStr("..."),
+            )
+        }
+    )
+
+
+# attach the returned dict to the outgoing A2A message metadata
 ```
 
 `MemoryHubFulfillment` accepts either an `api_key` (dev/testing path) or the OAuth 2.1 trio `auth_url` + `client_id` + `client_secret`.
