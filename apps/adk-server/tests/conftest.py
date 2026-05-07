@@ -34,7 +34,15 @@ class Configuration(BaseSettings):
 
     @computed_field
     @property
-    def llm_provider_type(self) -> ModelProviderType:
+    def llm_provider_type(self) -> ModelProviderType | None:
+        # Returns None when llm_model is empty so that pytest_configure's
+        # model_dump() does not crash during collection on fork PRs where
+        # vars.OPENAI_MODEL is not exposed to the workflow. The integration
+        # and e2e jobs are gated to skip on fork PRs in ci.yaml; this is
+        # defense-in-depth so a stray run produces a clear skip rather than
+        # an INTERNALERROR.
+        if not self.llm_model:
+            return None
         return ModelProviderType(self.llm_model.split(":", maxsplit=1)[0])
 
     @model_validator(mode="after")
