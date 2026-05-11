@@ -32,6 +32,9 @@ dependencies = [
     "jsonpatch>=1.33",
 ]
 
+[project.optional-dependencies]
+memoryhub = ["memoryhub>=0.7.0"]
+
 [dependency-groups]
 dev = [
     "beeai-framework[duckduckgo,wikipedia]>=0.1.76",

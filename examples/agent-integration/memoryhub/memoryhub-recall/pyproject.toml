@@ -1,0 +1,35 @@
+[project]
+name = "memoryhub-recall"
+version = "0.1.0"
+description = "Demonstrates cross-session memory recall via the MemoryHub A2A service extension"
+authors = [
+    { name = "IBM Corp." },
+]
+requires-python = ">=3.14,<3.15"
+dependencies = [
+    "kagenti-adk[memoryhub]>=0.5.3",
+    "pyyaml>=6.0.2",
+]
+
+[tool.ruff]
+line-length = 120
+target-version = "py314"
+
+[tool.uv.sources]
+kagenti-adk = { path = "../../../../apps/adk-py", editable = true }
+
+[project.scripts]
+server = "memoryhub_recall.agent:run"
+
+[build-system]
+requires = ["uv_build>=0.10.0,<0.11.0"]
+build-backend = "uv_build"
+
+[dependency-groups]
+dev = [
+    "watchfiles>=1.1.0",
+]
+
+[tool.pyright]
+venvPath = "."
+venv = ".venv"

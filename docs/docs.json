@@ -145,7 +145,8 @@
               "development/sdk/error",
               "development/sdk/tool-calls",
               "development/sdk/canvas",
-              "development/sdk/observability"
+              "development/sdk/observability",
+              "development/sdk/memory"
             ]
           },
           {

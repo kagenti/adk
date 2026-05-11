@@ -1,0 +1,195 @@
+---
+title: "Memory Store"
+description: "Give agents durable, cross-session memory backed by a governed knowledge store."
+---
+
+`MemoryStore` is a complement to `ContextStore`. While `ContextStore` replays the current conversation (per-context, ephemeral), `MemoryStore` provides durable knowledge that persists across sessions — things the agent should remember regardless of which conversation is active.
+
+The interface is backend-agnostic. The built-in implementation uses [MemoryHub](https://github.com/redhat-ai-americas/memory-hub), an open-source governed memory service for AI agents.
+
+## Protocol
+
+Two types make up the abstraction:
+
+**`MemoryStoreInstance`** — the per-context operations protocol:
+
+```python
+class MemoryStoreInstance(Protocol):
+    async def search(self, query: str, *, scope: str | None = None,
+                     project_id: str | None = None, max_results: int = 10) -> list[MemoryResult]: ...
+    async def create(self, content: str, *, scope: str = "user", weight: float = 0.7,
+                     tags: list[str] | None = None, project_id: str | None = None) -> str: ...
+    async def read(self, memory_id: str) -> MemoryResult | None: ...
+    async def update(self, memory_id: str, content: str) -> None: ...
+    async def delete(self, memory_id: str) -> None: ...
+```
+
+`create()` returns the new `memory_id`, or raises `MemoryRejectionError` if the backend rejected the write. The `scope`, `weight`, `tags` and `project_id` arguments are backend-defined; see the protocol docstrings for the worked MemoryHub mapping.
+
+Handle rejection like this:
+
+```python
+import logging
+
+from kagenti_adk.server.store.exceptions import MemoryRejectionError
+from kagenti_adk.server.store.memory_store import MemoryStoreInstance
+
+logger = logging.getLogger(__name__)
+
+
+async def store_user_preference(store: MemoryStoreInstance) -> None:
+    try:
+        memory_id = await store.create("user prefers dark mode", scope="user")
+    except MemoryRejectionError as e:
+        logger.info("Memory rejected: %s", e.reason)
+```
+
+**`MemoryResult`** — the value type returned from `search()` and `read()`:
+
+```python
+class MemoryResult(BaseModel):
+    memory_id: str
+    content: str
+    scope: str
+    weight: float = 0.7
+    relevance_score: float | None = None
+```
+
+## MemoryHub via the A2A service extension
+
+Add the `memoryhub` extra to your project:
+
+```bash
+uv add 'kagenti-adk[memoryhub]'
+```
+
+The MemoryHub backend is wired into agents through an A2A service extension. The agent declares a demand; the calling client supplies a `MemoryHubFulfillment` with a URL and credentials in the request metadata. Inside the agent, the extension exposes a per-context `MemoryHubMemoryStoreInstance`.
+
+### Server side (the agent)
+
+```python
+from typing import Annotated
+
+from a2a.types import Message
+from kagenti_adk.a2a.extensions import MemoryHubExtensionSpec
+from kagenti_adk.server import Server
+from kagenti_adk.server.context import RunContext
+from kagenti_adk.server.store.memoryhub_memory_store import MemoryHubExtensionServer
+
+server = Server()
+
+
+@server.agent()
+async def my_agent(
+    input: Message,
+    context: RunContext,
+    memoryhub: Annotated[MemoryHubExtensionServer, MemoryHubExtensionSpec.single_demand()],
+):
+    store = memoryhub.store(context.context_id)
+    results = await store.search("user preferences")
+    await store.create("User prefers concise responses", scope="user", weight=0.8)
+    yield f"recalled {len(results)} items"
+```
+
+### Client side (calling the agent)
+
+```python
+from a2a.types import AgentCard
+from kagenti_adk.a2a.extensions import (
+    MemoryHubExtensionClient,
+    MemoryHubExtensionSpec,
+    MemoryHubFulfillment,
+)
+from pydantic import SecretStr
+
+
+def memoryhub_metadata(agent_card: AgentCard):
+    spec = MemoryHubExtensionSpec.from_agent_card(agent_card)
+    if spec is None:
+        raise RuntimeError("agent does not advertise the memoryhub extension")
+    return MemoryHubExtensionClient(spec).fulfillment_metadata(
+        memoryhub_fulfillments={
+            "default": MemoryHubFulfillment(
+                url="https://memoryhub.example.com/mcp/",
+                api_key=SecretStr("..."),
+            )
+        }
+    )
+
+
+# attach the returned dict to the outgoing A2A message metadata
+```
+
+`MemoryHubFulfillment` accepts either an `api_key` (dev/testing path) or the OAuth 2.1 trio `auth_url` + `client_id` + `client_secret`.
+
+### Server-side environment fallback
+
+When no fulfillment metadata is provided, the extension falls back to environment variables — useful for local development:
+
+| Variable | Description |
+|---|---|
+| `MEMORYHUB_URL` | MemoryHub MCP URL (required) |
+| `MEMORYHUB_API_KEY` | Static API key (one path) |
+| `MEMORYHUB_AUTH_URL` | OAuth 2.1 token endpoint (other path) |
+| `MEMORYHUB_CLIENT_ID` | OAuth client ID |
+| `MEMORYHUB_CLIENT_SECRET` | OAuth client secret |
+
+## Full example
+
+A runnable agent that searches MemoryHub for the user's input, then stores one fact from it:
+
+{/* <!-- embedme examples/agent-integration/memoryhub/memoryhub-recall/src/memoryhub_recall/agent.py --> */}
+```python
+# Copyright 2026 © IBM Corp.
+# SPDX-License-Identifier: Apache-2.0
+
+import os
+from typing import Annotated
+
+from a2a.types import Message
+from a2a.utils.message import get_message_text
+from kagenti_adk.a2a.extensions import (
+    MemoryHubExtensionSpec,
+)
+from kagenti_adk.a2a.types import AgentMessage
+from kagenti_adk.server import Server
+from kagenti_adk.server.context import RunContext
+from kagenti_adk.server.store.memoryhub_memory_store import MemoryHubExtensionServer
+
+server = Server()
+
+
+@server.agent()
+async def memoryhub_recall_example(
+    input: Message,
+    context: RunContext,
+    memoryhub: Annotated[MemoryHubExtensionServer, MemoryHubExtensionSpec.single_demand()],
+):
+    """Search MemoryHub for the user's query, then store one fact from the input."""
+    query = get_message_text(input)
+    store = memoryhub.store(context.context_id)
+
+    results = await store.search(query, max_results=5)
+    await store.create(
+        f"User mentioned: {query}",
+        scope="project",
+        project_id="kagenti-tests",
+        weight=0.7,
+    )
+
+    yield AgentMessage(text=f"recalled {len(results)} items, stored 1")
+
+
+def run():
+    server.run(host=os.getenv("HOST", "127.0.0.1"), port=int(os.getenv("PORT", 8000)))
+
+
+if __name__ == "__main__":
+    run()
+```
+
+The example lives at `examples/agent-integration/memoryhub/memoryhub-recall`.
+
+<Tip>
+Use `scope="project"` with a `project_id` to share memories across multiple agents working on the same project, rather than scoping them to a single user.
+</Tip>

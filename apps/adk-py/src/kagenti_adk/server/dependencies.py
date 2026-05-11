@@ -45,10 +45,11 @@ class Depends:
     def __call__(
         self, message: Message, context: RunContext, request_context: RequestContext
     ) -> AbstractAsyncContextManager[Dependency]:
-        instance = self._dependency_callable(message, context, request_context)
-
         @asynccontextmanager
         async def lifespan() -> AsyncGenerator[Dependency]:
+            instance = self._dependency_callable(message, context, request_context)
+            if inspect.isawaitable(instance):
+                instance = await instance
             if self.extension or hasattr(instance, "lifespan"):
                 async with instance.lifespan():
                     yield instance

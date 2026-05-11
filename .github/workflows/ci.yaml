@@ -88,9 +88,15 @@ jobs:
   adk-server-test-integration:
     name: mise adk-server:test:integration
     needs: [setup, microshift-vm-build]
+    # Skip on fork PRs: secrets and vars (LLM_API_BASE, OPENAI_MODEL, etc.)
+    # are not exposed to pull_request events from forks, so this job would
+    # crash with `ValueError: '' is not a valid ModelProviderType` in
+    # conftest.py before any test could run.
     if: >-
       always() &&
       needs.microshift-vm-build.result != 'failure' &&
+      (github.event_name != 'pull_request' ||
+      github.event.pull_request.head.repo.full_name == github.repository) &&
       (needs.setup.outputs.adk-server == 'true' ||
       needs.setup.outputs.adk-cli == 'true')
     timeout-minutes: 45
@@ -126,9 +132,15 @@ jobs:
   adk-server-test-e2e:
     name: mise adk-server:test:e2e
     needs: [setup, microshift-vm-build]
+    # Skip on fork PRs: same secrets-and-vars limitation as
+    # adk-server-test-integration above. Without LLM_MODEL the conftest
+    # crashes; without OIDC_PROVIDER_* the adk-ui Deployment never goes
+    # ready and the job times out at 25 minutes.
     if: >-
       always() &&
       needs.microshift-vm-build.result != 'failure' &&
+      (github.event_name != 'pull_request' ||
+      github.event.pull_request.head.repo.full_name == github.repository) &&
       (needs.setup.outputs.adk-server == 'true' ||
       needs.setup.outputs.adk-cli == 'true' ||
       needs.setup.outputs.adk-py == 'true' ||

@@ -3,7 +3,9 @@
 
 from __future__ import annotations
 
+from contextlib import asynccontextmanager
 from typing import Annotated, TypedDict, Unpack
+from unittest.mock import MagicMock
 
 import pytest
 
@@ -14,7 +16,7 @@ from kagenti_adk.a2a.extensions import (
     TrajectoryExtensionSpec,
 )
 from kagenti_adk.a2a.extensions.streaming import StreamingExtensionServer, StreamingExtensionSpec
-from kagenti_adk.server.dependencies import extract_dependencies
+from kagenti_adk.server.dependencies import Depends, extract_dependencies
 
 pytestmark = pytest.mark.unit
 
@@ -64,3 +66,72 @@ def test_extract_dependencies_complex() -> None:
         pass
 
     assert extract_dependencies(agent).keys() == {"a", "b"}
+
+
+# ---------------------------------------------------------------------------
+# Depends supports awaitable callables (issue #229)
+# ---------------------------------------------------------------------------
+
+
+class TestDependsAwaitable:
+    """Depends should resolve both sync and async dependency callables."""
+
+    async def test_sync_callable_still_works(self) -> None:
+        sentinel = object()
+        dep = Depends(lambda _msg, _ctx, _rctx: sentinel)
+        async with dep(MagicMock(), MagicMock(), MagicMock()) as resolved:
+            assert resolved is sentinel
+
+    async def test_async_callable_resolves_awaited_value(self) -> None:
+        sentinel = object()
+
+        async def async_provider(_msg, _ctx, _rctx):
+            return sentinel
+
+        dep = Depends(async_provider)
+        async with dep(MagicMock(), MagicMock(), MagicMock()) as resolved:
+            assert resolved is sentinel
+
+    async def test_async_callable_returning_lifespan_object_enters_and_exits(self) -> None:
+        events: list[str] = []
+
+        class Lifespanned:
+            @asynccontextmanager
+            async def lifespan(self):
+                events.append("enter")
+                try:
+                    yield
+                finally:
+                    events.append("exit")
+
+        instance = Lifespanned()
+
+        async def async_provider(_msg, _ctx, _rctx):
+            return instance
+
+        dep = Depends(async_provider)
+        async with dep(MagicMock(), MagicMock(), MagicMock()) as resolved:
+            assert resolved is instance
+            events.append("body")
+
+        assert events == ["enter", "body", "exit"]
+
+    async def test_sync_callable_returning_lifespan_object_regression(self) -> None:
+        """BaseExtensionServer-style: sync callable that returns an instance with .lifespan()."""
+        events: list[str] = []
+
+        class Lifespanned:
+            @asynccontextmanager
+            async def lifespan(self):
+                events.append("enter")
+                try:
+                    yield
+                finally:
+                    events.append("exit")
+
+        instance = Lifespanned()
+        dep = Depends(lambda _msg, _ctx, _rctx: instance)
+        async with dep(MagicMock(), MagicMock(), MagicMock()) as resolved:
+            assert resolved is instance
+
+        assert events == ["enter", "exit"]

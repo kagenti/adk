@@ -70,7 +70,7 @@ dir = "{{config_root}}/apps/adk-py"
 usage = 'flag "--python <python>" default="3.14"'
 run = """
 #!/bin/bash
-uv run --python="${usage_python?}" pytest
+uv run --all-extras --python="${usage_python?}" pytest
 """
 
 # build
