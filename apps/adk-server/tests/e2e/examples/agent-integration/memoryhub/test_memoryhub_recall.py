@@ -2,12 +2,17 @@
 # SPDX-License-Identifier: Apache-2.0
 
 # Maintainer note: this E2E test requires a reachable MemoryHub instance.
-# Add the following repository secrets so CI runs the test:
-#   MEMORYHUB_E2E_URL              (required) — public MemoryHub MCP URL
-#   MEMORYHUB_E2E_API_KEY          (one of)  — static API key
-#   MEMORYHUB_E2E_AUTH_URL         (or…)
+#
+# URL resolution order:
+#   1. MEMORYHUB_E2E_URL env var / repo secret (explicit override)
+#   2. MemoryHub discovery endpoint (auto-detects current sandbox URL)
+#
+# Credentials (at least one set required):
+#   MEMORYHUB_E2E_API_KEY              — static API key
+#   MEMORYHUB_E2E_AUTH_URL             — OAuth 2.1 credentials (all three)
 #   MEMORYHUB_E2E_CLIENT_ID
-#   MEMORYHUB_E2E_CLIENT_SECRET    — OAuth 2.1 credentials
+#   MEMORYHUB_E2E_CLIENT_SECRET
+#
 # When neither credential set is configured the test skips cleanly so
 # contributor forks don't fail on a missing secret.
 #
@@ -50,9 +55,23 @@ from tests.e2e.examples.conftest import run_example
 
 pytestmark = pytest.mark.e2e
 
+DISCOVERY_URL = "https://redhat-ai-americas.github.io/memory-hub/discovery.json"
+
+
+def _discover_url(timeout: float = 5.0) -> str | None:
+    """Fetch the current MCP URL from the MemoryHub discovery endpoint."""
+    try:
+        resp = httpx.get(DISCOVERY_URL, timeout=timeout)
+        resp.raise_for_status()
+        data = resp.json()
+        default = data.get("default", "sandbox")
+        return data["instances"][default]["mcp_url"]
+    except Exception:
+        return None
+
 
 def _fulfillment_from_secrets() -> MemoryHubFulfillment | None:
-    url = os.environ.get("MEMORYHUB_E2E_URL")
+    url = os.environ.get("MEMORYHUB_E2E_URL") or _discover_url()
     if not url:
         return None
     api_key = os.environ.get("MEMORYHUB_E2E_API_KEY")
@@ -135,7 +154,8 @@ async def test_memoryhub_recall_example(subtests, get_final_task_from_stream, a2
     fulfillment = _fulfillment_from_secrets()
     if fulfillment is None:
         pytest.skip(
-            "MemoryHub E2E secrets not configured (set MEMORYHUB_E2E_URL plus MEMORYHUB_E2E_API_KEY or the OAuth trio)."
+            "MemoryHub E2E not configured: no MEMORYHUB_E2E_URL set, discovery endpoint unreachable, "
+            "and/or no credentials (MEMORYHUB_E2E_API_KEY or OAuth trio)."
         )
 
     await _xfail_on_backend_drift(fulfillment)
