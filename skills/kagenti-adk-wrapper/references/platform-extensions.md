@@ -21,7 +21,7 @@ Use this reference for selecting and implementing Kagenti ADK platform extension
 | **Canvas**            | Needs to edit artifacts or code selected by the user                                                     | [Work with Canvas](https://github.com/kagenti/adk/blob/main/docs/stable/agent-integration/canvas.mdx)                                                                                                                                            |
 | **Citations**         | References documents or external URLs                                                                    | [Add Citations to Agent Responses](https://github.com/kagenti/adk/blob/main/docs/stable/agent-integration/citations.mdx)                                                                                                                         |
 
-For a complete overview of all available extensions: **[Agent Integration Overview](https://github.com/kagenti/adk/blob/main/docs/stable/agent-integration/overview.mdx)**
+For a complete overview of all available extensions: **[Agent Integration Overview](https://github.com/kagenti/adk/blob/main/docs/stable/sdk/overview.mdx)**
 
 ## Configuration & Secret Guidance Location
 
