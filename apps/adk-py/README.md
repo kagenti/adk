@@ -86,7 +86,6 @@ Contributions are welcome! Please see the [Contributing Guide](https://github.co
 ## Support
 
 - [GitHub Issues](https://github.com/kagenti/adk/issues)
-- [GitHub Discussions](https://github.com/kagenti/adk/discussions)
 
 ---
 
