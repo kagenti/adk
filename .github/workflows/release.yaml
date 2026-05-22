@@ -74,7 +74,7 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - run: mise run 'adk-server:build:*'
-      - uses: docker/build-push-action@bcafcacb16a39f128d818304e6c9c0c18556b85f # v7.1.0
+      - uses: docker/build-push-action@f9f3042f7e2789586610d6e8b85c8f03e5195baf # v7.2.0
         with:
           context: ./apps/adk-server
           push: true
@@ -87,7 +87,7 @@ jobs:
           cache-to: type=registry,ref=ghcr.io/${{ github.repository }}/adk-server:cache,mode=max
 
       - run: mise run 'adk-ui:build:*'
-      - uses: docker/build-push-action@bcafcacb16a39f128d818304e6c9c0c18556b85f # v7.1.0
+      - uses: docker/build-push-action@f9f3042f7e2789586610d6e8b85c8f03e5195baf # v7.2.0
         with:
           context: .
           file: ./apps/adk-ui/Dockerfile
@@ -100,7 +100,7 @@ jobs:
           cache-from: type=registry,ref=ghcr.io/${{ github.repository }}/adk-ui:cache
           cache-to: type=registry,ref=ghcr.io/${{ github.repository }}/adk-ui:cache,mode=max
 
-      - uses: docker/build-push-action@bcafcacb16a39f128d818304e6c9c0c18556b85f # v7.1.0
+      - uses: docker/build-push-action@f9f3042f7e2789586610d6e8b85c8f03e5195baf # v7.2.0
         with:
           context: ./
           file: agents/adk-support-agent/Dockerfile
