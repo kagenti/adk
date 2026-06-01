@@ -63,7 +63,7 @@
     "unified": "^11.0.5",
     "unist-util-visit": "^5.1.0",
     "usehooks-ts": "catalog:",
-    "uuid": "^13.0.0",
+    "uuid": "^14.0.0",
     "validator": "^13.15.26",
     "zod": "^4.3.6"
   },
